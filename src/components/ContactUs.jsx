@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { collection, addDoc } from 'firebase/firestore';
 import { firestore } from '../firebase'; // Adjust the path as per your project structure
 
 const ContactUs = () => {
+  const [messageSent, setMessageSent] = useState(false);
+
   // Sample emergency hotlines data
   const hotlines = [
     {
@@ -50,7 +52,13 @@ const ContactUs = () => {
       // Optionally, you can reset the form fields after submission
       e.target.reset();
 
-      console.log('Form data submitted successfully!');
+      // Set messageSent to true to display the message
+      setMessageSent(true);
+
+      // Hide the message after 2 seconds
+      setTimeout(() => {
+        setMessageSent(false);
+      }, 2000);
     } catch (error) {
       console.error('Error submitting form data:', error);
     }
@@ -59,13 +67,13 @@ const ContactUs = () => {
   return (
     <div className="container mx-auto py-10 grid lg:grid-cols-2 gap-10">
       {/* Contact Form */}
-      <div className="bg-white p-8 rounded-lg shadow-lg">
+      <div className="bg-white p-8 rounded-lg shadow-lg relative">
         <h2 className="text-3xl font-bold mb-6">Contact Us</h2>
         
         {/* Form */}
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="space-y-4">
           {/* Full Name Input */}
-          <div className="mb-4">
+          <div>
             <label htmlFor="fullName" className="block text-lg font-semibold mb-2">Full Name</label>
             <input
               type="text"
@@ -77,7 +85,7 @@ const ContactUs = () => {
           </div>
           
           {/* Email Address Input */}
-          <div className="mb-4">
+          <div>
             <label htmlFor="email" className="block text-lg font-semibold mb-2">Email Address</label>
             <input
               type="email"
@@ -89,7 +97,7 @@ const ContactUs = () => {
           </div>
           
           {/* Concerns/Message Input */}
-          <div className="mb-6">
+          <div>
             <label htmlFor="message" className="block text-lg font-semibold mb-2">Concerns/Message</label>
             <textarea
               id="message"
@@ -108,6 +116,13 @@ const ContactUs = () => {
             Submit
           </button>
         </form>
+        {messageSent && (
+          <div className="fixed top-0 left-0 w-full h-full flex items-center justify-center">
+            <div className="bg-black bg-opacity-50 rounded-lg p-6">
+              <p className="text-white text-center">Message has been sent.</p>
+            </div>
+          </div>
+        )}
       </div>
       
       {/* Emergency Hotlines */}
@@ -115,7 +130,7 @@ const ContactUs = () => {
         <h2 className="text-3xl font-bold mb-6">Emergency Hotlines</h2>
         
         {/* Hotline List */}
-        <ul className="space-y-4">
+        <ul className="space-y-2">
           {hotlines.map((hotline) => (
             <li key={hotline.id} className="flex justify-between items-center">
               <span className="font-semibold">{hotline.description}</span>

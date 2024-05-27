@@ -10,10 +10,9 @@ import CommunityEventsPage from './pages/CommunityEvents';
 import GoodMoralPage from './pages/GoodMoral';
 import Navbar from './components/Navbar';
 import TrackDocuments from './components/TrackDocuments';
-import { BrowserRouter } from 'react-router-dom'; // Import BrowserRouter
 import CheckDocuments from './components/CheckDocuments';
 
-function App() {
+function Request() {
   // Define state variables
   const [documentType, setDocumentType] = useState('');
   const [numberOfCopies, setNumberOfCopies] = useState('');
@@ -38,7 +37,7 @@ function App() {
   };
   
   const handleCheckButton = (buttonName) => {
-if (buttonName === 'Check') {
+    if (buttonName === 'Check') {
       setShowTrackDocuments(false); // Hide TrackDocuments when CheckDocuments is shown
       setShowCheckDocuments(true);
     } else {
@@ -95,52 +94,55 @@ if (buttonName === 'Check') {
 
   // Redirect based on state
   if (redirectToBusinessPermit) {
-    return <BusinessPermitPage />;
+    return <BusinessPermitPage numberOfCopies={numberOfCopies} />;
   }
 
   if (redirectToResidency) {
-    return <ResidencyPage />;
+    return <ResidencyPage numberOfCopies={numberOfCopies} />;
   }
 
   if (redirectToIndigency) {
-    return <IndigencyPage />;
+    return <IndigencyPage numberOfCopies={numberOfCopies} />;
   }
 
   if (redirectToBusinessClearancePage) {
-    return <BusinessClearancePage />;
+    return <BusinessClearancePage numberOfCopies={numberOfCopies}/>;
   }
 
   if (redirectToCommunityEventsPage) {
-    return <CommunityEventsPage />;
+    return <CommunityEventsPage numberOfCopies={numberOfCopies}/>;
   }
 
   if (redirectToGoodMoralPage) {
-    return <GoodMoralPage />;
+    return <GoodMoralPage numberOfCopies={numberOfCopies}/>;
   }
 
   return (
-
     <div>
       <Navbar handleButtonClick={handleButtonClick} handleDocumentTypeChange={handleDocumentTypeChange} />
       <div className="container mx-auto px-4 md:px-8 lg:px-16 xl:px-24 mt-20">
         {showTrackDocuments ? (
           <TrackDocuments handleCheckButton={handleCheckButton} handleDocumentTypeChange={handleDocumentTypeChange} />
         ) : showCheckDocuments ? (
-          <CheckDocuments  />
+          <CheckDocuments />
         ) : (
-          <div className="md:flex">
-            <div className="md:w-1/3 mb-4">
-              <DocumentTypeSection handleDocumentTypeChange={handleDocumentTypeChange} />
+          <div>
+            <div className="md:flex justify-center">
+              <div className="md:w-1/3 mb-4">
+                <DocumentTypeSection handleDocumentTypeChange={handleDocumentTypeChange} />
+              </div>
+              <div className="md:w-1/3 mb-4">
+                <InputSection
+                  numberOfCopies={numberOfCopies}
+                  handleInputChange={handleInputChange}
+                  handleSubmit={handleSubmit}
+                />
+              </div>
             </div>
-            <div className="md:w-1/3 mb-4">
-              <InputSection
-                numberOfCopies={numberOfCopies}
-                handleInputChange={handleInputChange}
-                handleSubmit={handleSubmit}
-              />
-            </div>
-            <div className="md:w-1/3 mb-4">
-              <ImagePreview documentType={documentType} />
+            <div className="md:flex justify-center">
+              <div className="md:w-1/2 mb-4">
+                <ImagePreview documentType={documentType} />
+              </div>
             </div>
           </div>
         )}
@@ -149,4 +151,4 @@ if (buttonName === 'Check') {
   );
 }
 
-export default App;
+export default Request;

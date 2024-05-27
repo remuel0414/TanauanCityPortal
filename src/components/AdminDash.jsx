@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import AnnouncementForm from './AnnouncementForm';
-import PictureForm from './PictureForm';
 import AnnouncementsList from './AnnouncementsList';
+import PictureForm from './PictureForm';
 import PicturesList from './PicturesList';
 import ContactsList from './ContactsList';
 import { firestore } from '../firebase.js';
 import { getDocs, collection, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
-import { v4 as uuidv4 } from 'uuid'; // Import UUID for generating unique IDs
 
 const AdminDash = () => {
     const [activeTab, setActiveTab] = useState('announcements');
@@ -17,6 +16,11 @@ const AdminDash = () => {
     const [pictures, setPictures] = useState([]);
     const [pictureImageURL, setPictureImageURL] = useState('');
     const [announcements, setAnnouncements] = useState([]);
+    const [showAnnouncementAdded, setShowAnnouncementAdded] = useState(false);
+    const [showPictureAdded, setShowPictureAdded] = useState(false);
+    const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+    const [showPictureDeleted, setShowPictureDeleted] = useState(false);
+    const [deletePictureId, setDeletePictureId] = useState('');
 
     useEffect(() => {
         const fetchAnnouncements = async () => {
@@ -58,6 +62,10 @@ const AdminDash = () => {
             setDescription('');
             setAnnouncementImageURL('');
             setReadMoreLink('');
+            setShowAnnouncementAdded(true);
+            setTimeout(() => {
+                setShowAnnouncementAdded(false);
+            }, 2000);
 
             console.log('Announcement added successfully!');
         } catch (error) {
@@ -65,16 +73,19 @@ const AdminDash = () => {
         }
     };
 
-    const handleUpdateAnnouncement = async (announcementId) => {
+    const handleUpdateAnnouncement = async (updatedAnnouncement) => {
         try {
-            await updateDoc(doc(firestore, 'announcements', announcementId), {
-                title,
-                description,
-                imageURL: announcementImageURL,
-                readMoreLink,
+            const announcementRef = doc(firestore, 'announcements', updatedAnnouncement.id);
+            await updateDoc(announcementRef, {
+                title: updatedAnnouncement.title,
+                description: updatedAnnouncement.description,
+                imageURL: updatedAnnouncement.imageURL,
+                readMoreLink: updatedAnnouncement.readMoreLink,
             });
 
-            console.log('Announcement updated successfully!');
+            setAnnouncements(announcements.map(announcement =>
+                announcement.id === updatedAnnouncement.id ? updatedAnnouncement : announcement
+            ));
         } catch (error) {
             console.error('Error updating announcement:', error);
         }
@@ -83,7 +94,6 @@ const AdminDash = () => {
     const handleDeleteAnnouncement = async (announcementId) => {
         try {
             await deleteDoc(doc(firestore, 'announcements', announcementId));
-
             console.log('Announcement deleted successfully!');
         } catch (error) {
             console.error('Error deleting announcement:', error);
@@ -92,11 +102,18 @@ const AdminDash = () => {
 
     const handleAddPicture = async (e) => {
         e.preventDefault();
-        
+
         try {
             await addDoc(collection(firestore, 'pictures'), {
                 imageURL: pictureImageURL,
             });
+
+            setShowPictureAdded(true);
+            setTimeout(() => {
+                setShowPictureAdded(false);
+                window.location.reload();
+            }, 2000);
+
             console.log('Picture added successfully!');
             setPictureImageURL('');
         } catch (error) {
@@ -105,21 +122,33 @@ const AdminDash = () => {
     };
 
     const handleDeletePicture = async (pictureId) => {
+        setDeletePictureId(pictureId);
+        setShowDeleteConfirmation(true);
+    };
+
+    const confirmDeletePicture = async () => {
         try {
-            console.log('Deleting picture document with ID:', pictureId);
-            await deleteDoc(doc(firestore, 'pictures', pictureId));
-    
-            console.log('Picture document deleted successfully from Firestore!');
+            await deleteDoc(doc(firestore, 'pictures', deletePictureId));
+            setShowPictureDeleted(true);
+            setTimeout(() => {
+                setShowPictureDeleted(false);
+                window.location.reload();
+            }, 2000);
+            console.log('Picture deleted successfully!');
         } catch (error) {
-            console.error('Error deleting picture document:', error);
+            console.error('Error deleting picture:', error);
         }
+        setShowDeleteConfirmation(false);
+    };
+
+    const cancelDeletePicture = () => {
+        setShowDeleteConfirmation(false);
     };
 
     return (
         <div className="container mx-auto py-10 px-4 lg:px-0">
             <h2 className="text-3xl font-bold mb-8">Admin Dashboard</h2>
 
-            {/* Tabs */}
             <div className="flex mb-8">
                 <button
                     className={`px-6 py-2 mr-4 rounded-md focus:outline-none ${activeTab === 'announcements' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'}`}
@@ -141,7 +170,6 @@ const AdminDash = () => {
                 </button>
             </div>
 
-            {/* Tab Content */}
             {activeTab === 'announcements' && (
                 <>
                     <AnnouncementForm
@@ -158,7 +186,7 @@ const AdminDash = () => {
 
                     <AnnouncementsList
                         announcements={announcements}
-                        handleUpdate={handleUpdateAnnouncement}
+                        handleUpdateAnnouncement={handleUpdateAnnouncement}
                         handleDelete={handleDeleteAnnouncement}
                     />
                 </>
@@ -180,8 +208,49 @@ const AdminDash = () => {
             )}
 
             {activeTab === 'contacts' && <ContactsList />}
+
+                        {/* Overlay message for announcement added */}
+                        {showAnnouncementAdded && (
+                <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+                    <div className="bg-white p-6 rounded-md shadow-lg">
+                        <p className="text-xl font-semibold text-green-500">Announcement Added Successfully</p>
+                    </div>
+                </div>
+            )}
+
+            {/* Overlay message for picture added */}
+            {showPictureAdded && (
+                <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+                    <div className="bg-white p-6 rounded-md shadow-lg">
+                        <p className="text-xl font-semibold text-green-500">Picture Added Successfully</p>
+                    </div>
+                </div>
+            )}
+
+            {/* Confirmation modal for deleting picture */}
+            {showDeleteConfirmation && (
+                <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+                    <div className="bg-white p-6 rounded-md shadow-lg">
+                        <p className="text-xl font-semibold">Are you sure you want to delete this picture?</p>
+                        <div className="flex justify-end mt-4">
+                            <button className="px-4 py-2 bg-red-500 text-white rounded-md mr-4" onClick={confirmDeletePicture}>Delete</button>
+                            <button className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md" onClick={cancelDeletePicture}>Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Overlay message for picture deleted */}
+            {showPictureDeleted && (
+                <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+                    <div className="bg-white p-6 rounded-md shadow-lg">
+                        <p className="text-xl font-semibold text-green-500">Picture Deleted Successfully</p>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
 
 export default AdminDash;
+

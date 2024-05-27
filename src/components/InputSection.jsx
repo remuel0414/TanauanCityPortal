@@ -12,7 +12,7 @@ function InputSection({ numberOfCopies, handleInputChange, handleSubmit }) {
   };
 
   const handleFormSubmit = () => {
-    if (!isValid) {
+    if (!isValid || numberOfCopies === '0') {
       setErrorMessage('Please input No. of Copies');
     } else {
       handleSubmit();
@@ -21,7 +21,7 @@ function InputSection({ numberOfCopies, handleInputChange, handleSubmit }) {
 
   return (
     <div className="inputSection flex items-center flex-col md:flex md:flex-col"> {/* Added Tailwind CSS classes */}
-      <label htmlFor="numberOfCopies" className="text-lg mb-0 mx-auto p-4 text-center">
+      <label htmlFor="numberOfCopies" className="text-lg mb-0 mx-auto p-4 text-center font-bold">
         Input No. of Copies:
       </label>
       <input

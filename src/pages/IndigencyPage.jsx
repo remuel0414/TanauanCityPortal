@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Stepper from '../components/Stepper';
 import { StepperContext } from '../context/StepperContext';
 import UploadID from '../components/steps_Indigency/UploadID';
@@ -7,8 +7,14 @@ import IndigencyAddress from '../components/steps_Indigency/IndigencyAddress';
 import Final from '../components/steps_Indigency/Final';
 import Payment from '../components/steps_Indigency/Payment';
 import StepperControlIndigency from '../components/StepperControlIndigency';
+import { getDownloadURL } from "firebase/storage";
+import { storage } from "../../firebase";
+import { ref, uploadBytes } from "firebase/storage";
+import { v4 as uuidv4 } from 'uuid';
+import { collection, addDoc } from 'firebase/firestore';
+import { db } from '../../firebase'; // Adjust the path based on your folder structure
 
-function IndigencyPage() {
+function IndigencyPage({numberOfCopies}) {
 
     const [currentStep, setCurrentStep] = useState(1);
     const [userData, setUserData] = useState({
@@ -27,7 +33,9 @@ function IndigencyPage() {
         "barangay": "",
         "proof-of-payment" : "",
         "reference-number" : "",
-        "date-of-payment" : ""
+        "date-of-payment" : "",
+        "document-type" : "Indigency",
+        "number-of-copies" : numberOfCopies
     });
     const [finalData, setFinalData] = useState([]);
     const [uploadIDFieldsComplete, setUploadIDFieldsComplete] = useState(false);
@@ -62,13 +70,13 @@ function IndigencyPage() {
     const displayStep = (step) => {
         switch (step) {
             case 1:
-                return <UploadID handleUploadIDComplete={handleUploadIDComplete} />;
+                return <UploadID handleUploadIDComplete={handleUploadIDComplete} passIdToParent={handleUploadedIdFiles}/>;
             case 2:
-                return <PersonalInfo handlePersonalInfoFieldsComplete={handlePersonalInfoFieldsComplete}/>;
+                return <PersonalInfo handlePersonalInfoFieldsComplete={handlePersonalInfoFieldsComplete} passInputDataToParent={passInputDataToParent}/>;
             case 3:
-                return <IndigencyAddress handleIndigencyAddressFieldsComplete={handleIndigencyAddressFieldsComplete} />;
+                return <IndigencyAddress handleIndigencyAddressFieldsComplete={handleIndigencyAddressFieldsComplete} passInputDataToParent={passInputDataToParent}/>;
             case 4:
-                return <Payment handlePaymentFieldsComplete={handlePaymentFieldsComplete}/>;
+                return <Payment handlePaymentFieldsComplete={handlePaymentFieldsComplete} passInputDataToParent={passInputDataToParent} passPaymentToParent={handleUploadedPaymentFiles}/>;
             case 5:
                 return <Final />;
             default:
@@ -86,9 +94,97 @@ function IndigencyPage() {
     const handleGoBack = () => {
         // Redirect to the DocumentTypeSection page
         // Replace '/document-types' with the actual path of DocumentTypeSection
-        window.location.href = '/document-types';
+        window.location.href = '/';
     }
 
+    const [IdFiles, setIdFiles] = useState({}); // Define uploadedFiles state
+    const handleUploadedIdFiles = (idFiles) => {
+        console.log("Received ID Files from UploadID component:", idFiles);
+        setIdFiles(idFiles);
+    };
+
+    const [inputData, setInputData] = useState({}); // Define inputData state as an empty object
+
+    const passInputDataToParent = (inputData) => {
+        console.log("Inputs Received in Parent Component:", inputData);
+        setInputData(inputData); // Set inputData state
+        // Do whatever you want with the inputData in the parent component
+    };
+
+    const [paymentFiles, setPaymentFiles] = useState({}); // Define uploadedFiles state
+    const handleUploadedPaymentFiles = (paymentFiles) => {
+        console.log("Received Payment Files from Payment component:", paymentFiles);
+        console.log("Received Id Files from Payment component:", IdFiles);
+        setPaymentFiles(paymentFiles);
+    };
+    
+    const uploadImages = async () => {
+        try {
+            const uniqueFolderId = uuidv4(); // Generate a unique ID for the folder
+            const uploadPromises = [];
+            const inputDataWithDownloadUrls = { ...inputData }; // Create a copy of inputData
+    
+            // Merge paymentFiles with uploadedFiles
+            const allFiles = { ...IdFiles, ...paymentFiles };
+    
+            // Loop through each entry in allFiles
+            Object.entries(allFiles).forEach(([fieldName, files]) => {
+                // Check if the entry contains a file
+                if (files) {
+                    // If the files are paymentFiles, use 'proof-of-payment' as the fieldName
+                    const field = fieldName === 'proof-of-payment' ? 'proof-of-payment' : fieldName;
+                    files.forEach((file) => {
+                        const imageRef = ref(storage, `Indigency-Upload/${uniqueFolderId}/${file.name}`); // Use uniqueFolderId for folder structure
+                        uploadPromises.push(
+                            uploadBytes(imageRef, file).then(async (snapshot) => {
+                                // Get the download URL for the uploaded file
+                                const downloadURL = await getDownloadURL(snapshot.ref);
+    
+                                // Store the download URL in the inputData object
+                                inputDataWithDownloadUrls[field] = downloadURL;
+                            })
+                        );
+                    });
+                }
+            });
+    
+            // Wait for all files to be uploaded and download URLs to be obtained
+            await Promise.all(uploadPromises);
+    
+            // Generate a unique ID for the document
+            const docId = uuidv4();
+    
+            // Add the inputData with download URLs to Firestore
+            await addDoc(collection(db, 'userData'), {
+                [docId]: inputDataWithDownloadUrls
+            });
+    
+            // Log success message
+            console.log('Input data and download URLs uploaded successfully to Firestore');
+        } catch (error) {
+            // Log and handle errors
+            console.error('Error uploading input data and download URLs to Firestore:', error);
+        }
+    };
+
+    const containerRef = useRef(null);
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            // Trigger the "Next" button action
+            const nextButton = document.querySelector('.next-button');
+            if (nextButton) {
+                nextButton.click();
+            }
+        }
+    };
+
+    useEffect(() => {
+        if (containerRef.current) {
+            containerRef.current.focus();
+        }
+    }, []);
+    
     return (
         <>
             {/* Go Back to Request Page button */}
@@ -102,7 +198,12 @@ function IndigencyPage() {
                 </button>
             </div>
 
-            <div className="flex">
+            <div 
+                className="flex" 
+                ref={containerRef} 
+                tabIndex="0" 
+                onKeyDown={handleKeyDown}
+            >
                 <div className="w-full md:w-1/2 mx-auto shadow-xl rounded-2xl pb-2 bg-white mt-8 mb-10 px-4 md:px-0">
                     <h1 className="text-3xl font-bold text-center mb-4 mt-8">Indigency Form</h1>
 
@@ -136,6 +237,9 @@ function IndigencyPage() {
                             personalInfoFieldsComplete={personalInfoFieldsComplete}
                             indigencyAddressFieldsComplete={indigencyAddressFieldsComplete}
                             paymentFieldsComplete = {paymentFieldsComplete}
+                            passIdToParent={handleUploadedIdFiles}
+                            uploadImages={uploadImages}
+                            
                         />
                     }
                 </div>

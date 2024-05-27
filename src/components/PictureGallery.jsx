@@ -15,34 +15,17 @@ const PictureGallery = () => {
     autoplay: true,
     autoplaySpeed: 3000,
     cssEase: 'ease-in-out',
-    centerMode: true,
-    centerPadding: '25%',
-    responsive: [
-      {
-        breakpoint: 768,
-        settings: {
-          slidesToShow: 1,
-          slidesToScroll: 1,
-          centerMode: false,
-          centerPadding: '0',
-        }
-      }
-    ]
   };
 
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
-
   const placeholderImageUrl = 'https://via.placeholder.com/1200x800';
 
   useEffect(() => {
     const fetchImages = async () => {
       try {
         const querySnapshot = await getDocs(collection(firestore, 'pictures'));
-        const imagesData = querySnapshot.docs.map(doc => {
-          const data = doc.data();
-          return data.imageURL;
-        });
+        const imagesData = querySnapshot.docs.map(doc => doc.data().imageURL);
         setImages(imagesData);
         setLoading(false);
       } catch (error) {
@@ -55,31 +38,42 @@ const PictureGallery = () => {
   }, []);
 
   if (loading) {
-    return <div>Loading images...</div>;
+    return <div className="flex justify-center items-center h-screen">Loading images...</div>;
   }
 
   if (images.length === 0) {
-    return <div>No images found.</div>;
+    return <div className="flex justify-center items-center h-screen">No images found.</div>;
   }
 
+  // Split images into 4 arrays for the 4 sliders
+  const chunkSize = Math.ceil(images.length / 4);
+  const imageChunks = Array.from({ length: 4 }, (_, index) => 
+    images.slice(index * chunkSize, index * chunkSize + chunkSize)
+  );
+
   return (
-    <div className="picture-gallery-container py-10">
+    <div className="picture-gallery-container py-10 mx-auto max-w-screen-xl">
       <h2 className="text-3xl font-semibold text-center mb-8">Picture Gallery</h2>
-      <Slider {...settings}>
-        {images.map((image, index) => (
-          <div key={index} className="flex justify-center items-center">
-            <img
-              src={image || placeholderImageUrl}
-              onError={(e) => { e.target.src = placeholderImageUrl }}
-              alt={`Slide ${index + 1}`}
-              className="w-full h-96 md:h-128 object-cover rounded-lg shadow-lg gallery-image"
-              style={{ transition: 'transform 0.3s ease-in-out' }}
-              onMouseOver={(e) => { e.target.style.transform = 'scale(1.1) translateY(-5%)'; }}
-              onMouseOut={(e) => { e.target.style.transform = 'scale(1) translateY(0)'; }}
-            />
+      <div className="space-y-8">
+        {imageChunks.map((chunk, idx) => (
+          <div key={idx} className="flex justify-center items-center">
+            <div className="w-full">
+              <Slider {...settings}>
+                {chunk.map((image, index) => (
+                  <div key={index} className="flex justify-center items-center">
+                    <img
+                      src={image || placeholderImageUrl}
+                      onError={(e) => { e.target.src = placeholderImageUrl }}
+                      alt={`Slide ${index + 1}`}
+                      className="w-full h-80 object-cover rounded-lg shadow-lg transition-transform hover:scale-105" // Adjusted height
+                    />
+                  </div>
+                ))}
+              </Slider>
+            </div>
           </div>
         ))}
-      </Slider>
+      </div>
     </div>
   );
 };

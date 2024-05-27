@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Stepper from '../components/Stepper';
 import { StepperContext } from '../context/StepperContext';
 import EventDetails from '../components/steps_community_events/EventDetails';
@@ -8,8 +8,13 @@ import ParticipantInformation from '../components/steps_community_events/Partici
 import Final from '../components/steps_community_events/Final';
 import Payment from '../components/steps_community_events/Payment';
 import StepperControlCommunity from '../components/StepperControlCommunity';
-
-function CommunityEventsPage() {
+import { getDownloadURL } from "firebase/storage";
+import { storage } from "../../firebase";
+import { ref, uploadBytes } from "firebase/storage";
+import { v4 as uuidv4 } from 'uuid';
+import { collection, addDoc } from 'firebase/firestore';
+import { db } from '../../firebase'; // Adjust the path based on your folder structure
+function CommunityEventsPage({numberOfCopies}) {
 
     const [currentStep, setCurrentStep] = useState(1);
     const [userData, setUserData] = useState({
@@ -29,7 +34,9 @@ function CommunityEventsPage() {
         "government-id": "",
         "proof-of-payment" : "",
         "reference-number" : "",
-        "date-of-payment" : ""
+        "date-of-payment" : "",
+        "document-type" : "Community Events",
+        "number-of-copies" : numberOfCopies
     });
 
     const [finalData, setFinalData] = useState([]);
@@ -43,7 +50,7 @@ function CommunityEventsPage() {
         "Event Details",
         "Organizer Information",
         "Participant Information",
-        "Supporting Documents",
+        "Id Documents",
         "Payment",
         "Complete"
     ];
@@ -79,8 +86,96 @@ function CommunityEventsPage() {
     const handleGoBack = () => {
         // Redirect to the DocumentTypeSection page
         // Replace '/document-types' with the actual path of DocumentTypeSection
-        window.location.href = '/document-types';
+        window.location.href = '/';
     }
+
+    const [inputData, setInputData] = useState({}); // Define inputData state as an empty object
+
+    const passInputDataToParent = (inputData) => {
+        console.log("Inputs Received in Parent Component:", inputData);
+        setInputData(inputData); // Set inputData state
+        // Do whatever you want with the inputData in the parent component
+    };
+
+    const [IdFiles, setIdFiles] = useState({}); // Define uploadedFiles state
+    const handleUploadedIdFiles = (IdFiles) => {
+        console.log("Received ID Files from UploadID component:", IdFiles);
+        setIdFiles(IdFiles);
+    };
+
+    const [paymentFiles, setPaymentFiles] = useState({}); // Define uploadedFiles state
+    const handleUploadedPaymentFiles = (paymentFiles) => {
+        console.log("Received Payment Files from Payment component:", paymentFiles);
+        console.log("Received Id Files from Payment component:", IdFiles);
+        setPaymentFiles(paymentFiles);
+    };
+
+    const uploadImages = async () => {
+        try {
+            const uniqueFolderId = uuidv4(); // Generate a unique ID for the folder
+            const uploadPromises = [];
+            const inputDataWithDownloadUrls = { ...inputData }; // Create a copy of inputData
+    
+            // Merge paymentFiles with uploadedFiles
+            const allFiles = { ...IdFiles, ...paymentFiles };
+    
+            // Loop through each entry in allFiles
+            Object.entries(allFiles).forEach(([fieldName, files]) => {
+                // Check if the entry contains a file
+                if (files) {
+                    // If the files are paymentFiles, use 'proof-of-payment' as the fieldName
+                    const field = fieldName === 'proof-of-payment' ? 'proof-of-payment' : fieldName;
+                    files.forEach((file) => {
+                        const imageRef = ref(storage, `CommunityEvents-Upload/${uniqueFolderId}/${file.name}`); // Use uniqueFolderId for folder structure
+                        uploadPromises.push(
+                            uploadBytes(imageRef, file).then(async (snapshot) => {
+                                // Get the download URL for the uploaded file
+                                const downloadURL = await getDownloadURL(snapshot.ref);
+    
+                                // Store the download URL in the inputData object
+                                inputDataWithDownloadUrls[field] = downloadURL;
+                            })
+                        );
+                    });
+                }
+            });
+    
+            // Wait for all files to be uploaded and download URLs to be obtained
+            await Promise.all(uploadPromises);
+    
+            // Generate a unique ID for the document
+            const docId = uuidv4();
+    
+            // Add the inputData with download URLs to Firestore
+            await addDoc(collection(db, 'userData'), {
+                [docId]: inputDataWithDownloadUrls
+            });
+    
+            // Log success message
+            console.log('Input data and download URLs uploaded successfully to Firestore');
+        } catch (error) {
+            // Log and handle errors
+            console.error('Error uploading input data and download URLs to Firestore:', error);
+        }
+    };
+
+    const containerRef = useRef(null);
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            // Trigger the "Next" button action
+            const nextButton = document.querySelector('.next-button');
+            if (nextButton) {
+                nextButton.click();
+            }
+        }
+    };
+
+    useEffect(() => {
+        if (containerRef.current) {
+            containerRef.current.focus();
+        }
+    }, []);
 
     return (
         <>
@@ -95,7 +190,12 @@ function CommunityEventsPage() {
                 </button>
             </div>
 
-            <div className="flex">
+            <div 
+                className="flex" 
+                ref={containerRef} 
+                tabIndex="0" 
+                onKeyDown={handleKeyDown}
+            >
                 <div className="w-full md:w-1/2 mx-auto shadow-xl rounded-2xl pb-2 bg-white mt-8 mb-10 px-4 md:px-0">
                     <h1 className="text-3xl font-bold text-center mb-4 mt-8">Community and Events Form</h1>
 
@@ -114,11 +214,11 @@ function CommunityEventsPage() {
                                 finalData,
                                 setFinalData
                             }}>
-                                {currentStep === 1 && <EventDetails handleEventDetailsFieldsComplete={handleEventDetailsFieldsComplete} />}
-                                {currentStep === 2 && <OrganizerInformation handleOrganizerInformationFieldsComplete={handleOrganizerInformationFieldsComplete} />}
-                                {currentStep === 3 && <ParticipantInformation handleParticipantInformationFieldsComplete={handleParticipantInformationFieldsComplete} />}
-                                {currentStep === 4 && <UploadID handleUploadIDFieldsComplete={handleUploadIDFieldsComplete} />}
-                                {currentStep === 5 && <Payment handlePaymentFieldsComplete={handlePaymentFieldsComplete} />}
+                                {currentStep === 1 && <EventDetails handleEventDetailsFieldsComplete={handleEventDetailsFieldsComplete} passInputDataToParent={passInputDataToParent}/>}
+                                {currentStep === 2 && <OrganizerInformation handleOrganizerInformationFieldsComplete={handleOrganizerInformationFieldsComplete} passInputDataToParent={passInputDataToParent}/>}
+                                {currentStep === 3 && <ParticipantInformation handleParticipantInformationFieldsComplete={handleParticipantInformationFieldsComplete} passInputDataToParent={passInputDataToParent}/>}
+                                {currentStep === 4 && <UploadID handleUploadIDFieldsComplete={handleUploadIDFieldsComplete} passIdToParent={handleUploadedIdFiles}/>}
+                                {currentStep === 5 && <Payment handlePaymentFieldsComplete={handlePaymentFieldsComplete} passPaymentToParent={handleUploadedPaymentFiles} passInputDataToParent={passInputDataToParent}/>}
                                 {currentStep === 6 && <Final />}
                             </StepperContext.Provider>
                         </div>
@@ -135,6 +235,8 @@ function CommunityEventsPage() {
                             participantInformationFieldsComplete={participantInformationFieldsComplete}
                             uploadIDFieldsComplete={allFilesUploaded}
                             paymentFieldsComplete={paymentFieldsComplete}
+                            uploadImages={uploadImages}
+                            
                         />
                     }
                 </div>

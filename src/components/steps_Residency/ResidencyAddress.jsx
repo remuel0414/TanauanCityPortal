@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { StepperContext } from '../../context/StepperContext';
 
-export default function ResidencyAddress({ handleResidencyAddressFieldsComplete }) {
+export default function ResidencyAddress({ handleResidencyAddressFieldsComplete, passInputDataToParent}) {
   const { userData, setUserData } = useContext(StepperContext);
   const [inputData, setInputData] = useState(userData);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setInputData({ ...inputData, [name]: value });
+    passInputDataToParent(inputData); // Step 2: Pass data to parent
   };
 
   useEffect(() => {
@@ -24,6 +25,10 @@ useEffect(() => {
   const isComplete = requiredFields.every(fieldName => userData[fieldName] !== '');
   handleResidencyAddressFieldsComplete(isComplete);
 }, [userData, handleResidencyAddressFieldsComplete]);
+
+useEffect(() => {
+  passInputDataToParent(inputData);
+}, [inputData, passInputDataToParent]);
 
   return (
     <div className="flex flex-col">

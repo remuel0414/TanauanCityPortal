@@ -1,13 +1,23 @@
-import React, { useContext, useEffect } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { StepperContext } from '../../context/StepperContext';
 
-export default function OwnerAddress({handleOwnerAddressFieldsComplete}) {
+export default function OwnerAddress({handleOwnerAddressFieldsComplete, passInputDataToParent}) {
   const { userData, setUserData } = useContext(StepperContext);
+  const [inputData, setInputData] = useState(userData);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setUserData({ ...userData, [name]: value });
+    setInputData({ ...inputData, [name]: value });
+    passInputDataToParent(inputData); // Pass updated data to parent component
   };
+
+  useEffect(() => {
+    setUserData(inputData);
+  }, [inputData, setUserData]);
+
+  useEffect(() => {
+    passInputDataToParent(inputData);
+  }, [inputData, passInputDataToParent]);
 
   useEffect(() => {
     const requiredFields = ["owner-house-bldg-number", "owner-building-name", "owner-lot-number", "owner-subdivision", "owner-street", "owner-region", "owner-province", "owner-city", "owner-barangay"];

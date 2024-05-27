@@ -1,14 +1,15 @@
 import React, { useContext , useEffect, useState} from 'react';
 import { StepperContext } from '../../context/StepperContext';
 
-export default function BusinessInfo({handleBusinessInfoFieldsComplete}) {
+export default function BusinessInfo({handleBusinessInfoFieldsComplete, passInputDataToParent}) {
   const { userData, setUserData } = useContext(StepperContext);
   const [inputData, setInputData] = useState(userData);
 
   const handleChange = (e) => {
-        const { name, value } = e.target;
-        setInputData({ ...inputData, [name]: value });
-  };
+    const { name, value } = e.target;
+    setInputData({ ...inputData, [name]: value });
+    passInputDataToParent(inputData); // Step 2: Pass data to parent
+};
 
   // Update userData when inputData changes
   useEffect(() => {
@@ -21,6 +22,10 @@ useEffect(() => {
     const isComplete = requiredFields.every(fieldName => userData[fieldName] !== '');
     handleBusinessInfoFieldsComplete(isComplete);
 }, [userData, handleBusinessInfoFieldsComplete]);
+
+useEffect(() => {
+  passInputDataToParent(inputData);
+}, [inputData, passInputDataToParent]);
 
   return (
     <div className="flex flex-col">

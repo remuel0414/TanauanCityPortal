@@ -1,20 +1,22 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { StepperContext } from '../../context/StepperContext';
 
-export default function Address({handleIndigencyAddressFieldsComplete}) {
+export default function IndigencyAddress({ handleIndigencyAddressFieldsComplete, passInputDataToParent}) {
   const { userData, setUserData } = useContext(StepperContext);
   const [inputData, setInputData] = useState(userData);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setInputData({ ...inputData, [name]: value });
+    passInputDataToParent(inputData); // Step 2: Pass data to parent
   };
 
   useEffect(() => {
     setUserData(inputData);
   }, [inputData, setUserData]);
 
-  // Check if all required fields are filled whenever userData changes
+
+// Check if all required fields are filled whenever userData changes
 useEffect(() => {
   const requiredFields = ['house-bldg-number', 'building-name',
    'lot-number', 'subdivision', 'street', 'region', 'province'
@@ -23,6 +25,10 @@ useEffect(() => {
   const isComplete = requiredFields.every(fieldName => userData[fieldName] !== '');
   handleIndigencyAddressFieldsComplete(isComplete);
 }, [userData, handleIndigencyAddressFieldsComplete]);
+
+useEffect(() => {
+  passInputDataToParent(inputData);
+}, [inputData, passInputDataToParent]);
 
   return (
     <div className="flex flex-col">
@@ -37,6 +43,7 @@ useEffect(() => {
             name="house-bldg-number"
             placeholder="house-bldg-number"
             className="p-1 px-2 appearance-none outline-none w-full text-gray-800"
+            required
           />
         </div>
       </div>
@@ -52,6 +59,7 @@ useEffect(() => {
             name="building-name"
             placeholder="building-name"
             className="p-1 px-2 appearance-none outline-none w-full text-gray-800"
+            required
           />
         </div>
       </div>
@@ -67,6 +75,7 @@ useEffect(() => {
             name="lot-number"
             placeholder="lot-number"
             className="p-1 px-2 appearance-none outline-none w-full text-gray-800"
+            required
           />
         </div>
       </div>
@@ -82,6 +91,7 @@ useEffect(() => {
             name="subdivision"
             placeholder="subdivision"
             className="p-1 px-2 appearance-none outline-none w-full text-gray-800"
+            required
           />
         </div>
       </div>
@@ -97,6 +107,7 @@ useEffect(() => {
             name="street"
             placeholder="street"
             className="p-1 px-2 appearance-none outline-none w-full text-gray-800"
+            required
           />
         </div>
       </div>
@@ -112,6 +123,7 @@ useEffect(() => {
             name="region"
             placeholder="region"
             className="p-1 px-2 appearance-none outline-none w-full text-gray-800"
+            required
           />
         </div>
       </div>
@@ -127,6 +139,7 @@ useEffect(() => {
             name="province"   
             placeholder="province"
             className="p-1 px-2 appearance-none outline-none w-full text-gray-800"
+            required
           />
         </div>
       </div>
@@ -142,6 +155,7 @@ useEffect(() => {
             name="city"   
             placeholder="city"
             className="p-1 px-2 appearance-none outline-none w-full text-gray-800"
+            required          
           />
         </div>
       </div>
@@ -157,6 +171,7 @@ useEffect(() => {
             name="barangay"   
             placeholder="barangay"
             className="p-1 px-2 appearance-none outline-none w-full text-gray-800"
+            required
           />
         </div>
       </div>

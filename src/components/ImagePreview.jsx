@@ -62,7 +62,7 @@ function ImagePreview({ documentType }) {
               src={images[currentImageIndex]}
               alt={documentType ? `Preview for ${documentType}` : 'Default Preview'}
               className="previewImage mx-auto" // Center the image horizontally
-              style={{ width: '600px', height: '600px',  cursor: 'pointer' }}
+              style={{ width: '500px', height: '500px',  cursor: 'pointer' }}
               onClick={handleImageClick}
             />
             <div className="absolute bottom-0 left-0 right-0 text-black text-center p-2">
@@ -82,7 +82,7 @@ function ImagePreview({ documentType }) {
                     style={{ width: '80%', height: 'auto' }} // Adjust width as needed
                   />
                 </div>
-                <button onClick={closeModal} className="absolute top-0 right-0 mr-2 bg-red-500 text-white p-4 rounded-full text-2xl mt-[50px]">x</button>
+                <button onClick={closeModal} className="absolute top-0 right-0 mt-20 mr-2 bg-red-500 text-white p-4 rounded-full text-base hover:bg-red-800">Close</button>
               </div>
             </div>
           )}

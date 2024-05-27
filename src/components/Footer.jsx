@@ -7,13 +7,13 @@ const Footer = () => {
       <div className="container mx-auto px-4">
         {/* Buttons from the Navbar */}
         <div className="flex justify-center space-x-6 mb-6">
-          <Link to="/" className="text-lg font-semibold hover:text-gray-400">
+          <Link to="/homepage" className="text-lg font-semibold hover:text-gray-400">
             Home
           </Link>
-          <Link to="/request-document" className="text-lg font-semibold hover:text-gray-400">
+          <Link to="/request" className="text-lg font-semibold hover:text-gray-400">
             Request Document
           </Link>
-          <Link to="/track-document" className="text-lg font-semibold hover:text-gray-400">
+          <Link to="/track" className="text-lg font-semibold hover:text-gray-400">
             Track Document
           </Link>
         </div>

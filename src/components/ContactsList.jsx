@@ -4,6 +4,7 @@ import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
 
 const ContactsList = () => {
     const [contacts, setContacts] = useState([]);
+    const [deletingContactId, setDeletingContactId] = useState(null);
 
     useEffect(() => {
         const fetchContacts = async () => {
@@ -20,13 +21,23 @@ const ContactsList = () => {
     }, []);
 
     const handleDeleteContact = async (contactId) => {
+        setDeletingContactId(contactId); // Set the contact id being deleted
+    };
+
+    const handleConfirmDelete = async () => {
         try {
-            await deleteDoc(doc(firestore, 'contacts', contactId));
-            setContacts(contacts.filter(contact => contact.id !== contactId));
+            await deleteDoc(doc(firestore, 'contacts', deletingContactId));
+            setContacts(contacts.filter(contact => contact.id !== deletingContactId));
             console.log('Contact deleted successfully!');
         } catch (error) {
             console.error('Error deleting contact:', error);
+        } finally {
+            setDeletingContactId(null); // Reset the deletingContactId state
         }
+    };
+
+    const handleCancelDelete = () => {
+        setDeletingContactId(null); // Reset the deletingContactId state
     };
 
     return (
@@ -47,6 +58,28 @@ const ContactsList = () => {
                     </div>
                 ))}
             </div>
+            {/* Overlay for delete confirmation */}
+            {deletingContactId && (
+                <div className="fixed top-0 left-0 w-full h-full flex items-center justify-center bg-black bg-opacity-50">
+                    <div className="bg-white p-4 rounded-lg shadow-md">
+                        <p className="text-lg font-semibold mb-2">Are you sure you want to delete this message?</p>
+                        <div className="flex justify-center space-x-4">
+                            <button
+                                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 focus:outline-none"
+                                onClick={handleConfirmDelete}
+                            >
+                                Yes
+                            </button>
+                            <button
+                                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 focus:outline-none"
+                                onClick={handleCancelDelete}
+                            >
+                                No
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

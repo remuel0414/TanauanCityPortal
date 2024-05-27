@@ -1,31 +1,76 @@
 import { useContext, useState, useEffect } from 'react';
 import { StepperContext } from '../../context/StepperContext';
 
-export default function Upload({handleUploadFieldsComplete}) {
-    const { userData, setUserData } = useContext(StepperContext);
+export default function Upload({handleUploadFieldsComplete, passFilesToParent}) {
     const [uploadedFiles, setUploadedFiles] = useState({});
     const [allFilesUploaded, setAllFilesUploaded] = useState(false);
+    const [selectedFiles, setSelectedFiles] = useState({
+        'fsi-certificate': [],
+        'health-permit': [],
+        'zoning-clearance': [], 
+        'business-permit-or-license' : [],
+        'income-statements' : [],
+        'balance-sheets' : []
+    });
 
-    useEffect(() => {
+    const passFilesToParentFunction = () => {
+        // Pass the selected files to the parent component
+        passFilesToParent(selectedFiles);
+    };
+
+    useEffect(() => {   
         // Check if all required files are uploaded
-        const requiredFiles = ['fsi-certificate', 'health-permit', 'zoning-clearance', 'business-permit-or-license', 'income-statements', 'balance-sheets', 'afp'];
-        const filesUploaded = requiredFiles.every(fieldName => uploadedFiles[fieldName]);
-        setAllFilesUploaded(filesUploaded);
-    }, [uploadedFiles]);
+        const requiredFiles = [
+            'fsi-certificate',
+            'health-permit',
+            'zoning-clearance',
+            'business-permit-or-license',
+            'income-statements',
+            'balance-sheets'
+        ];
+
+        // Check if all required files are uploaded for each field
+        const allFilesUploaded = requiredFiles.every(fieldName => {
+            return selectedFiles[fieldName] && selectedFiles[fieldName].length > 0;
+        });
+
+        // Log selectedFiles and allFilesUploaded
+        console.log("Selected Files:", selectedFiles);
+        console.log("All Files Uploaded:", allFilesUploaded);
+
+        // Set the allFilesUploaded state
+        setAllFilesUploaded(allFilesUploaded);
+    }, [selectedFiles]);
 
     const handleChange = (e, fieldName) => {
-        const file = e.target.files[0];
-        setUploadedFiles({
-            ...uploadedFiles,
-            [fieldName]: file ? file.name : null
-        });
-        setUserData({
-            ...userData,
-            uploadedFiles: {
-                ...userData.uploadedFiles,
-                [fieldName]: file
-            }
-        });
+        if (e && e.target && e.target.files) {
+            const files = Array.from(e.target.files);
+            console.log("Selected files:", files); // Log selected files
+            setSelectedFiles((prevSelectedFiles) => ({
+                ...prevSelectedFiles,
+                [fieldName]: files
+            }));
+            passFilesToParentFunction(selectedFiles); // Call the function to pass selected files to the parent
+            // Check if all required files are uploaded
+            const requiredFiles = [
+                'fsi-certificate',
+                'health-permit',
+                'zoning-clearance',
+                'business-permit-or-license',
+                'income-statements',
+                'balance-sheets'
+            ];
+    
+            // Check if all required files are uploaded for each field
+            const allFilesUploaded = requiredFiles.every(fieldName => {
+                return selectedFiles[fieldName].length > 0;
+            });
+
+            console.log("All Files Uploaded:", allFilesUploaded);
+    
+            // Set the allFilesUploaded state
+            setAllFilesUploaded(allFilesUploaded);
+        }
     };
 
     useEffect(() => {
@@ -36,6 +81,19 @@ export default function Upload({handleUploadFieldsComplete}) {
         }
     }, [allFilesUploaded, handleUploadFieldsComplete]);
 
+    const handleCancelUpload = (fieldName, fileName) =>     {
+        setSelectedFiles({
+            ...selectedFiles,
+            [fieldName]: selectedFiles[fieldName].filter(file => file.name !== fileName)
+        });
+    };
+    
+    useEffect(() => {
+        // Pass the selected files to the parent component
+        passFilesToParent(selectedFiles);
+
+    }, [selectedFiles, passFilesToParent]);
+
     return (
         <div className='flex flex-col'>
             <div className='w-full mx-2 flex-1'>
@@ -43,148 +101,162 @@ export default function Upload({handleUploadFieldsComplete}) {
                     Upload the Following:
                 </div>
                 <ul className='uploadList'>
-                    <li className='flex justify-between items-center mb-8'>
-                        <span className='text-sm'>Fire Safety Inspection Certificate:</span>
-                        <div className='flex items-center'>
+                        <li className='flex justify-between items-center mb-8'>
+                            <span className='text-sm sm:text-base mt-[10px] '>Fire Safety Inspection Certificate:</span>
                             <input
                                 type='file'
-                                id='fsi-certificate'
-                                name='fsi-certificate'
+                                id='fsi-certificate-input'
+                                name='fsi-certificate-input'
                                 className='hidden'
                                 onChange={(e) => handleChange(e, 'fsi-certificate')}
+                                required // Mark as required
                             />
                             <label
-                                htmlFor='fsi-certificate'
-                                className='bg-white py-1 px-2 rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer mr-2'
+                                htmlFor='fsi-certificate-input'
+                                className='bg-blue-500 text-white py-1 px-2 rounded-md border border-gray-300 hover:bg-blue-600 cursor-pointer mr-2 mt-[10px] ml-auto'
                             >
-                                Choose File
+                                Choose Files
                             </label>
-                            <span className='text-sm'>{uploadedFiles['fsi-certificate'] ? uploadedFiles['fsi-certificate'] : "No File Uploaded"}</span>
-                        </div>
-                    </li>
-
-                    <li className='flex justify-between items-center mb-8'>
-                        <span className='text-sm'>Health Permit:</span>
-                        <div className='flex items-center'>
+                            <div>
+                            {selectedFiles['fsi-certificate'] && selectedFiles['fsi-certificate'].map((file, index) => (
+                                <div key={index} className="flex items-center bg-white py-1 px-2 rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer mr-2 mt-4 ">
+                                    <p className="mr-2">{file.name}</p>
+                                    <button className='ml-auto text-black-600 bg-red-600 w-[30px] rounded' onClick={() => handleCancelUpload('fsi-certificate', file.name)}>x</button>
+                                </div>
+                            ))}
+                            </div>
+                        </li>
+                   
+                        <li className='flex justify-between items-center mb-8'>
+                            <span className='text-sm sm:text-base mt-[10px] '>Health Permit:</span>
                             <input
                                 type='file'
-                                id='health-permit'
-                                name='health-permit'
+                                id='health-permit-input'
+                                name='health-permit-input'
                                 className='hidden'
                                 onChange={(e) => handleChange(e, 'health-permit')}
+                                required // Mark as required
                             />
                             <label
-                                htmlFor='health-permit'
-                                className='bg-white py-1 px-2 rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer mr-2'
+                                htmlFor='health-permit-input'
+                                className='bg-blue-500 text-white py-1 px-2 rounded-md border border-gray-300 hover:bg-blue-600 cursor-pointer mr-2 mt-[10px] ml-auto'
                             >
-                                Choose File
+                                Choose Files
                             </label>
-                            <span className='text-sm'>{uploadedFiles['health-permit'] ? uploadedFiles['health-permit'] : "No File Uploaded"}</span>
-                        </div>
-                    </li>
-                    
-                    <li className='flex justify-between items-center mb-8'>
-                        <span className='text-sm'>Zoning Clearance:</span>
-                        <div className='flex items-center'>
+                            <div>
+                                {selectedFiles['health-permit'] && selectedFiles['health-permit'].map((file, index) => (
+                                    <div key={index} className="flex items-center bg-white py-1 px-2 rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer mr-2 mt-4 ">
+                                        <p className="mr-2">{file.name}</p>
+                                        <button className='ml-auto text-black-600 bg-red-600 w-[30px] rounded' onClick={() => handleCancelUpload('health-permit', file.name)}>x</button>
+                                    </div>
+                                ))}
+                            </div>
+                        </li>
+
+                        <li className='flex justify-between items-center mb-8'>
+                            <span className='text-sm sm:text-base mt-[10px] '>Zoning Clearance:</span>
                             <input
                                 type='file'
-                                id='zoning-clearance'
-                                name='zoning-clearance'
+                                id='zoning-clearance-input'
+                                name='zoning-clearance-input'
                                 className='hidden'
                                 onChange={(e) => handleChange(e, 'zoning-clearance')}
+                                required // Mark as required
                             />
                             <label
-                                htmlFor='zoning-clearance'
-                                className='bg-white py-1 px-2 rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer mr-2'
+                                htmlFor='zoning-clearance-input'
+                                className='bg-blue-500 text-white py-1 px-2 rounded-md border border-gray-300 hover:bg-blue-600 cursor-pointer mr-2 mt-[10px] ml-auto'
                             >
-                                Choose File
+                                Choose Files
                             </label>
-                            <span className='text-sm'>{uploadedFiles['zoning-clearance'] ? uploadedFiles['zoning-clearance'] : "No File Uploaded"}</span>
-                        </div>
-                    </li>
+                            <div>
+                                {selectedFiles['zoning-clearance'] && selectedFiles['zoning-clearance'].map((file, index) => (
+                                    <div key={index} className="flex items-center bg-white py-1 px-2 rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer mr-2 mt-4 ">
+                                        <p className="mr-2">{file.name}</p>
+                                        <button className='ml-auto text-black-600 bg-red-600 w-[30px] rounded' onClick={() => handleCancelUpload('zoning-clearance', file.name)}>x</button>
+                                    </div>
+                                ))}
+                            </div>
+                        </li>
 
-                    <li className='flex justify-between items-center mb-8'>
-                        <span className='text-sm'>Business Permit/License</span>
-                        <div className='flex items-center'>
+                        <li className='flex justify-between items-center mb-8'>
+                            <span className='text-sm sm:text-base mt-[10px] '>Business Permit/License</span>
                             <input
                                 type='file'
-                                id='business-permit-or-license'
-                                name='business-permit-or-license'
+                                id='business-permit-or-license-input'
+                                name='business-permit-or-license-input'
                                 className='hidden'
                                 onChange={(e) => handleChange(e, 'business-permit-or-license')}
+                                required // Mark as required
                             />
                             <label
-                                htmlFor='business-permit-or-license'
-                                className='bg-white py-1 px-2 rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer mr-2'
+                                htmlFor='business-permit-or-license-input'
+                                className='bg-blue-500 text-white py-1 px-2 rounded-md border border-gray-300 hover:bg-blue-600 cursor-pointer mr-2 mt-[10px] ml-auto'
                             >
-                                Choose File
+                                Choose Files
                             </label>
-                            <span className='text-sm'>{uploadedFiles['business-permit-or-license'] ? uploadedFiles['business-permit-or-license'] : "No File Uploaded"}</span>
-                        </div>
-                    </li>
+                            <div>
+                                {selectedFiles['business-permit-or-license'] && selectedFiles['business-permit-or-license'].map((file, index) => (
+                                    <div key={index} className="flex items-center bg-white py-1 px-2 rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer mr-2 mt-4 ">
+                                        <p className="mr-2">{file.name}</p>
+                                        <button className='ml-auto text-black-600 bg-red-600 w-[30px] rounded' onClick={() => handleCancelUpload('business-permit-or-license', file.name)}>x</button>
+                                    </div>
+                                ))}
+                            </div>
+                        </li>
 
-                    <li className='flex justify-between items-center mb-8'>
-                        <span className='text-sm'> Income Statements (also known as Profit and Loss Statements)</span>
-                        <div className='flex items-center'>
+                        <li className='flex justify-between items-center mb-8'>
+                            <span className='text-sm sm:text-base mt-[10px] '>Income Statements</span>
                             <input
                                 type='file'
-                                id='income-statements'
-                                name='income-statements'
+                                id='income-statements-input'
+                                name='income-statements-input'
                                 className='hidden'
                                 onChange={(e) => handleChange(e, 'income-statements')}
+                                required // Mark as required
                             />
                             <label
-                                htmlFor='income-statements'
-                                className='bg-white py-1 px-2 rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer mr-2'
+                                htmlFor='income-statements-input'
+                                className='bg-blue-500 text-white py-1 px-2 rounded-md border border-gray-300 hover:bg-blue-600 cursor-pointer mr-2 mt-[10px] ml-auto'
                             >
-                                Choose File
+                                Choose Files
                             </label>
-                            <span className='text-sm'>{uploadedFiles['income-statements'] ? uploadedFiles['income-statements'] : "No File Uploaded"}</span>
-                        </div>
-                    </li>
+                            <div>
+                                {selectedFiles['income-statements'] && selectedFiles['income-statements'].map((file, index) => (
+                                    <div key={index} className="flex items-center bg-white py-1 px-2 rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer mr-2 mt-4 ">
+                                        <p className="mr-2">{file.name}</p>
+                                        <button className='ml-auto text-black-600 bg-red-600 w-[30px] rounded' onClick={() => handleCancelUpload('income-statements', file.name)}>x</button>
+                                    </div>
+                                ))}
+                            </div>
+                        </li>
 
-                    <li className='flex justify-between items-center mb-8'>
-                        <span className='text-sm'> Balance Sheets </span>
-                        <div className='flex items-center'>
+                        <li className='flex justify-between items-center mb-8'>
+                            <span className='text-sm sm:text-base mt-[10px] '>Balance Sheets </span>
                             <input
                                 type='file'
-                                id='balance-sheets'
-                                name='balance-sheets'
+                                id='balance-sheets-input'
+                                name='balance-sheets-input'
                                 className='hidden'
                                 onChange={(e) => handleChange(e, 'balance-sheets')}
+                                required // Mark as required
                             />
                             <label
-                                htmlFor='balance-sheets'
-                                className='bg-white py-1 px-2 rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer mr-2'
+                                htmlFor='balance-sheets-input'
+                                className='bg-blue-500 text-white py-1 px-2 rounded-md border border-gray-300 hover:bg-blue-600 cursor-pointer mr-2 mt-[10px] ml-auto'
                             >
-                                Choose File
+                                Choose Files
                             </label>
-                            <span className='text-sm'>{uploadedFiles['balance-sheets'] ? uploadedFiles['balance-sheets'] : "No File Uploaded"}</span>
-                        </div>
-                    </li>
-                    
-                    <li className='flex justify-between items-center mb-8'>
-                        <span className='text-sm'> Audited Financial Reports (if applicable). </span>
-                        <div className='flex items-center'>
-                            <input
-                                type='file'
-                                id='afp'
-                                name='afp'
-                                className='hidden'
-                                onChange={(e) => handleChange(e, 'afp')}
-                            />
-                            <label
-                                htmlFor='afp'
-                                className='bg-white py-1 px-2 rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer mr-2'
-                            >
-                                Choose File
-                            </label>
-                            <span className='text-sm'>{uploadedFiles['afp'] ? uploadedFiles['afp'] : "No File Uploaded"}</span>
-                        </div>
-                    </li>
+                            <div>
+                                {selectedFiles['balance-sheets'] && selectedFiles['balance-sheets'].map((file, index) => (
+                                    <div key={index} className="flex items-center bg-white py-1 px-2 rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer mr-2 mt-4 ">
+                                        <p className="mr-2">{file.name}</p>
+                                        <button className='ml-auto text-black-600 bg-red-600 w-[30px] rounded' onClick={() => handleCancelUpload('balance-sheets', file.name)}>x</button>
+                                    </div>
+                                ))}
+                            </div>
+                        </li>
 
-                    
-                    {/* Add more list items for other uploads */}
                 </ul>
             </div>
 

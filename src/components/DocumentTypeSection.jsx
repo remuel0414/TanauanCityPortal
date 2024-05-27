@@ -8,13 +8,13 @@ function DocumentTypeSection({ handleDocumentTypeChange }) {
 
   return (
     <div className="documentTypeSection mx-auto p-8 text-center md:flex md:flex-col"> {/* Added Tailwind CSS classes */}
-      <label htmlFor="documentType" className="documentTypeLabel text-lg mb-4">
+      <label htmlFor="documentType" className="documentTypeLabel text-lg mb-4 font-bold">
         Select document type:
       </label>
       <select
         id="documentType"
         onChange={handleDocumentTypeChange}
-        className="documentTypeSelect text-lg px-4 py-2 border rounded-md mb-2 md:mb-0" >{/* Added margin bottom for small screens */}
+        className="documentTypeSelect text-lg px-4 py-2 border rounded-md mb-2 md:mb-0 text-center" >{/* Added margin bottom for small screens */}
       
         <option value="">Select</option>
         <option value="Type 1" className="business-permit-1">Business Permit</option>

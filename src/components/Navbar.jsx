@@ -1,203 +1,195 @@
-import React, { useState, useEffect } from 'react';
-import { FaBars, FaHome, FaFileAlt, FaUser } from 'react-icons/fa';
+import React, { useState, useEffect, useRef } from 'react';
+import { FaBars, FaAngleDown } from 'react-icons/fa';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { auth } from '../firebase.js'; // Import Firebase authentication instance
+import { firestore, auth } from '../firebase.js';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import './navbar.css'; // Import custom CSS file
 
 const Navbar = () => {
-    const [isLoggedIn, setIsLoggedIn] = useState(false); // State to track authentication status
-    const [activeButton, setActiveButton] = useState('Home'); // State to track active navigation button
-    const [showNavDropdown, setShowNavDropdown] = useState(false);
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [activeButton, setActiveButton] = useState('Home');
     const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-    const location = useLocation();
+    const [showMobileMenu, setShowMobileMenu] = useState(false);
+    const [profilePictureURL, setProfilePictureURL] = useState(null);
     const navigate = useNavigate();
+    const location = useLocation();
+    const profileDropdownRef = useRef(null);
 
     useEffect(() => {
-        // Check if user is logged in on component mount
         const unsubscribe = auth.onAuthStateChanged(user => {
             if (user) {
-                setIsLoggedIn(true); // Set state to true if user is logged in
+                setIsLoggedIn(true);
+                const fetchProfilePicture = async () => {
+                    try {
+                        const userInfoQuery = query(collection(firestore, 'userInfo'), where('uid', '==', user.uid));
+                        const userInfoSnapshot = await getDocs(userInfoQuery);
+                        if (!userInfoSnapshot.empty) {
+                            const userInfoData = userInfoSnapshot.docs[0].data();
+                            setProfilePictureURL(userInfoData.photoURL);
+                        } else {
+                            console.error('User info not found');
+                        }
+                    } catch (error) {
+                        console.error('Error fetching user info:', error);
+                    }
+                };
+                fetchProfilePicture();
             } else {
-                setIsLoggedIn(false); // Set state to false if user is not logged in
+                setIsLoggedIn(false);
             }
         });
-        return () => unsubscribe(); // Cleanup function
+        return () => unsubscribe();
     }, []);
-
-    const toggleNavDropdown = () => {
-        setShowNavDropdown(!showNavDropdown);
-    };
 
     const toggleProfileDropdown = () => {
         setShowProfileDropdown(!showProfileDropdown);
     };
 
+    const toggleMobileMenu = () => {
+        setShowMobileMenu(prevState => !prevState);
+        if (!showMobileMenu) {
+            document.addEventListener('click', handleClickOutsideMobileMenu);
+        } else {
+            document.removeEventListener('click', handleClickOutsideMobileMenu);
+        }
+    };
+
+    const handleClickOutsideMobileMenu = (event) => {
+        if (!profileDropdownRef.current.contains(event.target)) {
+            setShowMobileMenu(false);
+            document.removeEventListener('click', handleClickOutsideMobileMenu);
+        }
+    };
+
     const handleLogout = () => {
         auth.signOut().then(() => {
-            setIsLoggedIn(false); // Update authentication status on logout
-            navigate('/'); // Redirect to login/signup page
+            setIsLoggedIn(false);
+            navigate('/');
         }).catch(error => {
             console.error('Logout error:', error);
         });
     };
 
     const handleButtonClick = (buttonName) => {
-        setActiveButton(buttonName); // Update active button state
-        setShowNavDropdown(false); // Close nav dropdown when a button is clicked
+        setActiveButton(buttonName);
+        setShowProfileDropdown(false);
     };
+
+    useEffect(() => {
+        const pathname = location.pathname.toLowerCase();
+        const buttons = {
+            '/homepage': 'Home',
+            '/request': 'Request Document',
+            '/track': 'Track Document',
+            '/history-documents': 'Track Document' // Ensure history documents still highlights Track Document
+        };
+        const activeButton = location.state?.activeButton || buttons[pathname] || 'Home';
+        setActiveButton(activeButton);
+    }, [location.pathname, location.state]);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target)) {
+                setShowProfileDropdown(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, []);
 
     return (
         <nav className="fixed top-0 w-full bg-gray-100 shadow z-50 h-20" style={{ backgroundColor: "#f1f5f9" }}>
             <div className="container mx-auto flex justify-between items-center py-4 px-10 relative">
-                {/* Left part of navbar */}
                 <div className="flex items-center">
-                    <img
-                        src="src/assets/logo.png"
-                        alt="Logo"
-                        className="h-14 w-auto mr-3"
-                    />
+                    <img src="src/assets/logo.png" alt="Logo" className="h-14 w-auto mr-3" />
                     <span className="text-lg font-semibold text-gray-800">Tanauan City Portal</span>
-                    {/* Profile icon on small screens */}
-                    {isLoggedIn && (
-                        <div className="lg:hidden ml-4">
-                            <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center cursor-pointer" onClick={toggleProfileDropdown}>
-                                <img src="src/assets/profile.png" alt="Profile" className="w-10 h-10 rounded-full" />
+                </div>
+
+                {isLoggedIn && (
+                    <div className="flex items-center">
+                        <div className="lg:hidden">
+                            <FaBars className="text-3xl cursor-pointer" onClick={toggleMobileMenu} />
+                        </div>
+                        <div className="hidden lg:flex items-center space-x-4">
+                            <Link 
+                                to="/homepage" 
+                                className={`relative px-4 py-2 nav-link ${activeButton === 'Home' ? 'active' : ''}`} 
+                                onClick={() => handleButtonClick('Home')}
+                            >
+                                Home
+                            </Link>
+                            <Link 
+                                to="/request" 
+                                className={`relative px-4 py-2 nav-link ${activeButton === 'Request Document' ? 'active' : ''}`} 
+                                onClick={() => handleButtonClick('Request Document')}
+                            >
+                                Request Document
+                            </Link>
+                            <Link 
+                                to="/track" 
+                                className={`relative px-4 py-2 nav-link ${activeButton === 'Track Document' ? 'active' : ''}`} 
+                                onClick={() => handleButtonClick('Track Document')}
+                            >
+                                Track Document
+                            </Link>
+                        </div>
+                        <div className="relative">
+                            <div className="flex items-center cursor-pointer" onClick={toggleProfileDropdown}>
+                                <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden">
+                                    <img src={profilePictureURL} alt="Profile" className="w-full h-full object-cover" />
+                                </div>
+                                <FaAngleDown className="text-black ml-1" />
                             </div>
                             {showProfileDropdown && (
-                                <div className="absolute top-full right-0 bg-white shadow-md w-full py-2 rounded-md">
-                                    <button className="block px-4 py-2" onClick={handleLogout}>Log Out</button>
+                                <div className="absolute top-full right-0 bg-white shadow-md py-2 rounded-md mt-2" ref={profileDropdownRef}>
                                     {auth.currentUser && auth.currentUser.email === "lumbangremuel@gmail.com" && (
-                                        <Link
-                                            to="/admin"
-                                            className="block px-4 py-2"
-                                            onClick={() => handleButtonClick('Admin Dashboard')}
-                                        >
-                                            Admin Dashboard
-                                        </Link>
+                                        <>
+                                            <Link to="/admin" className="block px-4 py-2 hover:bg-gray-100 text-center" onClick={() => handleButtonClick('Admin Dashboard')}>
+                                                Admin Dashboard
+                                            </Link>
+                                            <Link to="/adminrequest" className="block px-4 py-2 hover:bg-gray-100 text-center" onClick={() => handleButtonClick('Admin Requests')}>
+                                                Admin Requests
+                                            </Link>
+                                        </>
                                     )}
-                                    <Link
-                                        to="/profile-settings"
-                                        className="block px-4 py-2"
-                                        onClick={() => handleButtonClick('Profile Settings')}
-                                    >
+                                    <Link to="/profile-settings" className="block px-4 py-2 hover:bg-gray-100 text-center" onClick={() => handleButtonClick('Profile Settings')}>
                                         Profile Settings
                                     </Link>
+                                    <button className="block px-4 py-2 hover:bg-gray-100 w-full" onClick={handleLogout}>Log Out</button>
                                 </div>
                             )}
                         </div>
-                    )}
-                </div>
-
-                {/* Right part of navbar */}
-                {isLoggedIn ? ( // Render different content based on authentication status
-                    <div className="hidden lg:flex items-center space-x-4">
-                        <Link
-                            to="/homepage"
-                            className={`flex items-center px-4 py-2 hover:bg-gray-100 transition duration-300 ${activeButton === 'Home' ? 'border-b-2 border-orange-500' : ''}`}
-                            onClick={() => handleButtonClick('Home')}
-                        >
-                            <FaHome className="mr-2" />
-                            Home
-                        </Link>
-                        <Link
-                            to="/request"
-                            className={`flex items-center px-4 py-2 hover:bg-gray-100 transition duration-300 ${activeButton === 'Request Document' ? 'border-b-2 border-orange-500' : ''}`}
-                            onClick={() => handleButtonClick('Request Document')}
-                        >
-                            <FaFileAlt className="mr-2" />
-                            Request Document
-                        </Link>
-                        <Link
-                            to="/track"
-                            className={`flex items-center px-4 py-2 hover:bg-gray-100 transition duration-300 ${activeButton === 'Track Document' ? 'border-b-2 border-orange-500' : ''}`}
-                            onClick={() => handleButtonClick('Track Document')}
-                        >
-                            <FaFileAlt className="mr-2" />
-                            Track Document
-                        </Link>
-                        {/* Profile icon on larger screens */}
-                        <div className="lg:flex items-center ml-4">
-                            <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center cursor-pointer" onClick={toggleProfileDropdown}>
-                                <img src="src/assets/profile.png" alt="Profile" className="w-10 h-10 rounded-full" />
-                            </div>
-                            {showProfileDropdown && (
-                                <div className="absolute top-full right-0 bg-white shadow-md w-full py-2 rounded-md">
-                                    <button className="block px-4 py-2" onClick={handleLogout}>Log Out</button>
-                                    {auth.currentUser && auth.currentUser.email === "lumbangremuel@gmail.com" && (
-                                        <Link
-                                            to="/admin"
-                                            className="block px-4 py-2"
-                                            onClick={() => handleButtonClick('Admin Dashboard')}
-                                        >
-                                            Homepage Dashboard
-                                        </Link>
-                                    )}
-                                    <Link
-                                        to="/profile-settings"
-                                        className="block px-4 py-2"
-                                        onClick={() => handleButtonClick('Profile Settings')}
-                                    >
-                                        Change Password
-                                    </Link>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                ) : (
-                    <div className="hidden lg:flex items-center space-x-4">
-                        {/* Render nothing if not logged in */}
                     </div>
                 )}
-
-                {/* Hamburger menu on small screens */}
-                <div className="lg:hidden">
-                    <button className="flex items-center text-sm font-medium focus:outline-none" onClick={toggleNavDropdown}>
-                        <FaBars className="text-xl" />
-                    </button>
-                </div>
-            </div>
-
-            {/* Nav dropdown for small screens */}
-            {showNavDropdown && (
-                <div className="lg:hidden absolute top-full right-0 bg-white shadow-md w-full py-2 rounded-md">
-                    <Link
-                        to="/homepage"
-                        className={`block px-4 py-2 ${activeButton === 'Home' ? 'bg-gray-200' : ''}`}
-                        onClick={() => handleButtonClick('Home')}
-                    >
-                        Home
-                    </Link>
-                    <Link
-                        to="/request"
-                        className={`block px-4 py-2 ${activeButton === 'Request Document' ? 'bg-gray-200' : ''}`}
-                        onClick={() => handleButtonClick('Request Document')}
-                    >
-                        Request Document
-                    </Link>
-                    <Link
-                        to="/track"
-                        className={`block px-4 py-2 ${activeButton === 'Track Document' ? 'bg-gray-200' : ''}`}
-                        onClick={() => handleButtonClick('Track Document')}
-                    >
-                        Track Document
-                    </Link>
-                    {auth.currentUser && auth.currentUser.email === "lumbangremuel@gmail.com" && (
-                        <Link
-                            to="/admin"
-                            className={`block px-4 py-2 ${activeButton === 'Admin Dashboard' ? 'bg-gray-200' : ''}`}
-                            onClick={() => handleButtonClick('Admin Dashboard')}
+                {showMobileMenu && (
+                    <div className="lg:hidden absolute top-full right-0 bg-white shadow-md py-2 rounded-md mt-2">
+                        <Link 
+                            to="/homepage" 
+                            className="block px-4 py-2 hover:bg-gray-100 transition duration-300 ease-in-out" 
+                            onClick={() => { handleButtonClick('Home'); toggleMobileMenu(); }}
                         >
-                            Admin Dashboard
+                            Home
                         </Link>
-                    )}
-                    <Link
-                        to="/profile-settings"
-                        className={`block px-4 py-2 ${activeButton === 'Profile Settings' ? 'bg-gray-200' : ''}`}
-                        onClick={() => handleButtonClick('Profile Settings')}
-                    >
-                        Change Password
-                    </Link>
-                </div>
-            )}
+                        <Link 
+                            to="/request" 
+                            className="block px-4 py-2 hover:bg-gray-100 transition duration-300 ease-in-out" 
+                            onClick={() => { handleButtonClick('Request Document'); toggleMobileMenu(); }}
+                        >
+                            Request Document
+                        </Link>
+                        <Link 
+                            to="/track" 
+                            className="block px-4 py-2 hover:bg-gray-100 transition duration-300 ease-in-out" 
+                            onClick={() => { handleButtonClick('Track Document'); toggleMobileMenu(); }}
+                        >
+                            Track Document
+                        </Link>
+                    </div>
+                )}
+            </div>
         </nav>
     );
 };

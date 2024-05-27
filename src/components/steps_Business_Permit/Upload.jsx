@@ -1,191 +1,223 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { StepperContext } from '../../context/StepperContext';
+import { storage } from "../../../firebase";
+import { ref, uploadBytes } from "firebase/storage";
 
 
-
-
-export default function Upload({ handleUploadComplete }) {
-
+export default function Upload({ handleUploadComplete, passFilesToParent}) {
     const { userData, setUserData } = useContext(StepperContext);
     const [uploadedFiles, setUploadedFiles] = useState({});
-    const [allFilesUploaded, setAllFilesUploaded] = useState(false);
+    const [allFilesUploaded, setAllFilesUploaded] = useState(false); // State to track all files uploaded
+    const [selectedFiles, setSelectedFiles] = useState({
+        'proof-of-business': [],
+        'contract-of-lease': [],
+        'picture-of-establishment': [], 
+        'barangay-business-clearance' : []
+    });
 
-    useEffect(() => {
-        // Check if all required files are uploaded
-        const requiredFiles = ['proof-of-business', 'contract-of-lease', 'picture-establishment', 'photos-business-loc', 'brgy-business-clearance', 'others-specify'];
-        const filesUploaded = requiredFiles.every(fieldName => uploadedFiles[fieldName]);
-        setAllFilesUploaded(filesUploaded);
-    }, [uploadedFiles]);
-
-    const handleChange = (e, fieldName) => {
-        if (e && e.target && e.target.files) {
-            const file = e.target.files[0];
-            setUploadedFiles({
-                ...uploadedFiles,
-                [fieldName]: file ? file.name : null
-            });
-            setUserData({
-                ...userData,
-                uploadedFiles: {
-                    ...userData.uploadedFiles,
-                    [fieldName]: file
-                }
-            });
+    const passFilesToParentFunction = () => {
+        // Pass the selected files to the parent component
+        passFilesToParent(selectedFiles);
     };
-    }
+
 
     useEffect(() => {
+        // Update parent component when all required files are uploaded
         if (allFilesUploaded) {
             handleUploadComplete(true);
         } else {
             handleUploadComplete(false);
         }
     }, [allFilesUploaded, handleUploadComplete]);
+    
+    useEffect(() => {   
+        // Check if all required files are uploaded
+        const requiredFiles = [
+            'proof-of-business',
+            'contract-of-lease',
+            'picture-of-establishment',
+            'barangay-business-clearance'
+        ];
+
+        // Check if all required files are uploaded for each field
+        const allFilesUploaded = requiredFiles.every(fieldName => {
+            return selectedFiles[fieldName].length > 0;
+        });
+
+        // Log selectedFiles and allFilesUploaded
+        console.log("Selected Files:", selectedFiles);
+        console.log("All Files Uploaded:", allFilesUploaded);
+
+        // Set the allFilesUploaded state
+        setAllFilesUploaded(allFilesUploaded);
+    }, [selectedFiles]);
+
+    // Function to handle file input change
+    const handleChange = (e, fieldName) => {
+        if (e && e.target && e.target.files) {
+            const files = Array.from(e.target.files);
+            console.log("Selected files:", files); // Log selected files
+            setSelectedFiles((prevSelectedFiles) => ({
+                ...prevSelectedFiles,
+                [fieldName]: files
+            }));
+            passFilesToParentFunction(selectedFiles); // Call the function to pass selected files to the parent
+            // Check if all required files are uploaded
+            const requiredFiles = [
+                'proof-of-business',
+                'contract-of-lease',
+                'picture-of-establishment',
+                'barangay-business-clearance'
+            ];
+    
+            // Check if all required files are uploaded for each field
+            const allFilesUploaded = requiredFiles.every(fieldName => {
+                return selectedFiles[fieldName].length > 0;
+            });
+
+            console.log("All Files Uploaded:", allFilesUploaded);
+    
+            // Set the allFilesUploaded state
+            setAllFilesUploaded(allFilesUploaded);
+        }
+    };
+    
+    // Function to handle cancellation of upload
+    const handleCancelUpload = (fieldName, fileName) =>     {
+        setSelectedFiles({
+            ...selectedFiles,
+            [fieldName]: selectedFiles[fieldName].filter(file => file.name !== fileName)
+        });
+    };
+
+    useEffect(() => {
+        // Pass the selected files to the parent component
+        passFilesToParent(selectedFiles);
+
+    }, [selectedFiles, passFilesToParent]);
+    
 
 
     return (
         <div className='flex flex-col'>
-        
-
+            
             <div className='w-full mx-2 flex-1 '>
-                <div className='font-bold h-6 mt-3 text-gray-500 text-xs leading-8 uppercase '>
-                    
+                
+                <div className='font-bold h-6 text-gray-500 text-xs leading-8 uppercase '>
                     Upload the Following:
                 </div>
                 <div className='w-full mx-2 flex-1 '>
-            
-                <ul className='uploadList'>
-                    
-                    <li className='flex justify-between items-center mb-8'>
-                        
-                        <span className='text-sm sm:text-base'>Proof of Business Registration (DTI for Sole Proprietorship/SEC <br></br>for Corporations and Partnership / CDA for Cooperatives)</span>
-                        <div className='flex items-center overflow-hidden whitespace-nowrap'>
+                    <ul className='uploadList'>
+                        <li className='flex justify-between items-center mb-8'>
+                            <span className='text-sm sm:text-base mt-[10px] '>*Proof of Business Registration (DTI/SEC/CDA)</span>
                             <input
                                 type='file'
-                                id='proof-of-business'
-                                name='proof-of-business'
+                                id='proof-of-business-input'
+                                name='proof-of-business-input'
                                 className='hidden'
                                 onChange={(e) => handleChange(e, 'proof-of-business')}
-                                
+                                required // Mark as required
                             />
-                            
                             <label
-                                htmlFor='proof-of-business'
-                                className='bg-white py-1 px-2 rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer mr-2'
+                                htmlFor='proof-of-business-input'
+                                className='bg-blue-500 text-white py-1 px-2 rounded-md border border-gray-300 hover:bg-blue-600 cursor-pointer mr-2 mt-[10px] ml-auto'
                             >
-                                Choose File
+                                Choose Files
                             </label>
-                            <span className='text-sm sm:text-base uploaded-files truncate'>{uploadedFiles['proof-of-business'] ? uploadedFiles['proof-of-business'] : "No File Uploaded"}</span>
-                        </div>
-                    </li>
+                            <div>
+                                {selectedFiles['proof-of-business'].map((file, index) => (
+                                    <div key={index} className="flex items-center bg-white py-1 px-2 rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer mr-2 mt-4 ">
+                                        <p className="mr-2">{file.name}</p>
+                                        <button className='ml-auto text-black-600 bg-red-600 w-[30px] rounded' onClick={() => handleCancelUpload('proof-of-business', file.name)}>x</button>
+                                    </div>
+                                ))}
+                            </div>
+                        </li>
 
-                    <li className='flex justify-between items-center mb-8'>
-                        <span className='text-sm sm:text-base'>Contract of Lease ( if leased ) or Tax Declaration (if owned) </span>
-                        <div className='flex items-center overflow-hidden whitespace-nowrap'>
+                        {/* Contract of Lease */}
+                        <li className='flex justify-between items-center mb-8'>
+                            <span className='text-sm sm:text-base mt-[10px] '>*Contract of Lease ( if leased ) or<br></br> Tax Declaration (if owned)</span>
                             <input
                                 type='file'
-                                id='contract-of-lease'
-                                name='contract-of-lease'
+                                id='contract-of-lease-input'
+                                name='contract-of-lease-input'
                                 className='hidden'
                                 onChange={(e) => handleChange(e, 'contract-of-lease')}
+                                required // Mark as required
                             />
                             <label
-                                htmlFor='contract-of-lease'
-                                className='bg-white py-1 px-2 rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer mr-2'
+                                htmlFor='contract-of-lease-input'
+                                className='bg-blue-500 text-white py-1 px-2 rounded-md border border-gray-300 hover:bg-blue-600 cursor-pointer mr-2 mt-[10px] ml-auto'
                             >
-                                Choose File
+                                Choose Files
                             </label>
-                            <span className='text-sm sm:text-base uploaded-files truncate'>{uploadedFiles['contract-of-lease'] ? uploadedFiles['contract-of-lease'] : "No File Uploaded"}</span>
-                        </div>
-                    </li>
+                            <div>
+                                {selectedFiles['contract-of-lease'].map((file, index) => (
+                                    <div key={index} className="flex items-center bg-white py-1 px-2 rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer mr-2 mt-4">
+                                        <p className="mr-2">{file.name}</p>
+                                        <button className='ml-auto text-black-600 bg-red-600 w-[30px] rounded' onClick={() => handleCancelUpload('contract-of-lease', file.name)}>x</button>
+                                    </div>
+                                ))}
+                            </div>
+                        </li>
 
-                    <li className='flex justify-between items-center mb-8'>
-                        <span className='text-sm sm:text-base'>Picture of Establishment</span>
-                        <div className='flex items-center overflow-hidden whitespace-nowrap'>
+                        {/* New list for Picture of Establishment */}
+                        <li className='flex justify-between items-center mb-8'>
+                            <span className='text-sm sm:text-base mt-[10px] '>*Picture of Establishment</span>
                             <input
                                 type='file'
-                                id='picture-establishment'
-                                name='picture-establishment'
+                                id='picture-establishment-input'
+                                name='picture-establishment-input'
                                 className='hidden'
-                                onChange={(e) => handleChange(e, 'picture-establishment')}
+                                onChange={(e) => handleChange(e, 'picture-of-establishment')}
+                                required // Mark as required
                             />
                             <label
-                                htmlFor='picture-establishment'
-                                className='bg-white py-1 px-2 rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer mr-2'
+                                htmlFor='picture-establishment-input'
+                                className='bg-blue-500 text-white py-1 px-2 rounded-md border border-gray-300 hover:bg-blue-600 cursor-pointer mr-2 mt-[10px] ml-auto'
                             >
-                                Choose File
+                                Choose Files
                             </label>
-                            <span className='text-sm sm:text-base uploaded-files truncate'>{uploadedFiles['picture-establishment'] ? uploadedFiles['picture-establishment'] : "No File Uploaded"}</span>
-                        </div>
-                    </li>
+                            <div>
+                                {selectedFiles['picture-of-establishment'].map((file, index) => (
+                                    <div key={index} className="flex items-center bg-white py-1 px-2 rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer mr-2 mt-4">
+                                        <p className="mr-2">{file.name}</p>
+                                        <button className='ml-auto text-black-600 bg-red-600 w-[30px] rounded' onClick={() => handleCancelUpload('picture-of-establishment', file.name)}>x</button>
+                                    </div>
+                                ))}
+                            </div>
+                        </li>
 
-                    <li className='flex justify-between items-center mb-8'>
-                        <span className='text-sm sm:text-base'>Sketch and Photos of location of Business</span>
-                        <div className='flex items-center overflow-hidden whitespace-nowrap'>
+                        <li className='flex justify-between items-center mb-8'>
+                            <span className='text-sm sm:text-base mt-[10px] '>*Barangay Business Clearance</span>
                             <input
                                 type='file'
-                                id='photos-business-loc'
-                                name='photos-business-loct'
+                                id='barangay-business-clearance-input'
+                                name='barangay-business-clearance-input'
                                 className='hidden'
-                                onChange={(e) => handleChange(e, 'photos-business-loc')}
+                                onChange={(e) => handleChange(e, 'barangay-business-clearance')}
+                                required // Mark as required
                             />
                             <label
-                                htmlFor='photos-business-loc'
-                                className='bg-white py-1 px-2 rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer mr-2'
+                                htmlFor='barangay-business-clearance-input'
+                                className='bg-blue-500 text-white py-1 px-2 rounded-md border border-gray-300 hover:bg-blue-600 cursor-pointer mr-2 mt-[10px] ml-auto'
                             >
-                                Choose File
+                                Choose Files
                             </label>
-                            <span className='text-sm sm:text-base uploaded-files truncate'>{uploadedFiles['photos-business-loc'] ? uploadedFiles['photos-business-loc'] : "No File Uploaded"}</span>
+                            <div>
+                                {selectedFiles['barangay-business-clearance'].map((file, index) => (
+                                    <div key={index} className="flex items-center bg-white py-1 px-2 rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer mr-2 mt-4">
+                                        <p className="mr-2">{file.name}</p>
+                                        <button className='ml-auto text-black-600 bg-red-600 w-[30px] rounded' onClick={() => handleCancelUpload('barangay-business-clearance', file.name)}>x</button>
+                                    </div>
+                                ))}
+                            </div>
+                        </li>
+                        <div>
                         </div>
-                    </li>
-                    
-                    <li className='flex justify-between items-center mb-8'>
-                        <span className='text-sm sm:text-base'>Barangay Business Clearance</span>
-                        <div className='flex items-center overflow-hidden whitespace-nowrap'>
-                            <input
-                                type='file'
-                                id='brgy-business-clearance'
-                                name='brgy-business-clearance'
-                                className='hidden'
-                                onChange={(e) => handleChange(e, 'brgy-business-clearance')}
-                            />
-                            <label
-                                htmlFor='brgy-business-clearance'
-                                className='bg-white py-1 px-2 rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer mr-2'
-                            >
-                                Choose File
-                            </label>
-                            <span className='text-sm sm:text-base uploaded-files truncate'>{uploadedFiles['brgy-business-clearance'] ? uploadedFiles['brgy-business-clearance'] : "No File Uploaded"}</span>
-                        </div>
-                    </li>
-                    
-                    <li className='flex justify-between items-center'>
-                        <span className='text-sm sm:text-base'>Others, please specify</span>
-                        <div className='flex items-center overflow-hidden whitespace-nowrap'>
-                            <input
-                                type='file'
-                                id='others-specify'
-                                name='others-specify'
-                                className='hidden'
-                                onChange={(e) => handleChange(e, 'others-specify')}
-                            />
-                            <label
-                                htmlFor='others-specify'
-                                className='bg-white py-1 px-2 rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer mr-2'
-                            >
-                                Choose File
-                            </label>
-                            <span className='text-sm sm:text-base uploaded-files truncate'>{uploadedFiles['others-specify'] ? uploadedFiles['others-specify'] : "No File Uploaded"}</span>
-                            
-                        </div>
-                       
-                    </li>
-                    
-                </ul>
-            </div>
-                
+                    </ul>
+                </div>
             </div>
         </div>
-    )
+    );
 }
-

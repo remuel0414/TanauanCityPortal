@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Stepper from '../components/Stepper';
 
 import { StepperContext } from '../context/StepperContext';
-
+import { getDownloadURL } from "firebase/storage";
 import UploadID from '../components/steps_Residency/UploadID';
 import PersonalInfo from '../components/steps_Residency/PersonalInfo';
 import ResidencyAddress from '../components/steps_Residency/ResidencyAddress';
@@ -10,7 +10,13 @@ import Final from '../components/steps_Residency/Final';
 import Payment from '../components/steps_Residency/Payment';
 import StepperControlResidency from '../components/StepperControlResidency'
 
-function ResidencyPage() {
+import { storage } from "../../firebase";
+import { ref, uploadBytes } from "firebase/storage";
+import { v4 as uuidv4 } from 'uuid';
+import { collection, addDoc } from 'firebase/firestore';
+import { db } from '../../firebase'; // Adjust the path based on your folder structure
+
+function ResidencyPage({numberOfCopies}) {
 
     const [currentStep, setCurrentStep] = useState(1);
     const [userData, setUserData] = useState({
@@ -29,7 +35,9 @@ function ResidencyPage() {
         "government-id": "",
         "proof-of-payment" : "",
         "reference-number" : "",
-        "date-of-payment" : ""
+        "date-of-payment" : "",
+        "document-type" : "Residency",
+        "number-of-copies" : numberOfCopies
     });
     const [finalData, setFinalData] = useState([]);
     const [personalInfoFieldsComplete, setPersonalInfoFieldsComplete] = useState(false);
@@ -64,13 +72,13 @@ function ResidencyPage() {
     const displayStep = (step) => {
         switch (step) {
             case 1:
-                return <PersonalInfo handlePersonalInfoFieldsComplete={handlePersonalInfoFieldsComplete} />;
+                return <PersonalInfo handlePersonalInfoFieldsComplete={handlePersonalInfoFieldsComplete} passInputDataToParent={passInputDataToParent}/>;
             case 2:                      
-                return <ResidencyAddress handleResidencyAddressFieldsComplete={handleresidencyAddressFieldsComplete} />;
+                return <ResidencyAddress handleResidencyAddressFieldsComplete={handleresidencyAddressFieldsComplete} passInputDataToParent={passInputDataToParent}/>;
             case 3:
-                return <UploadID handleUploadIDComplete={handleuploadIDFieldsComplete} />;
+                return <UploadID handleUploadIDComplete={handleuploadIDFieldsComplete} passIdToParent={handleUploadedIdFiles}/>;
             case 4:
-                return <Payment handlePaymentFieldsComplete = {handPaymentIDFieldsComplete}/>;
+                return <Payment handlePaymentFieldsComplete = {handPaymentIDFieldsComplete} passInputDataToParent={passInputDataToParent} passPaymentToParent={handleUploadedPaymentFiles}/>;
             case 5:
                 return <Final />;
             default:
@@ -89,8 +97,100 @@ function ResidencyPage() {
     const handleGoBack = () => {
         // Redirect to the DocumentTypeSection page
         // Replace '/document-types' with the actual path of DocumentTypeSection
-        window.location.href = '/document-types';
+        window.location.href = '/';
     };
+
+    const [inputData, setInputData] = useState({}); // Define inputData state as an empty object
+
+    const passInputDataToParent = (inputData) => {
+        console.log("Inputs Received in Parent Component:", inputData);
+        setInputData(inputData); // Set inputData state
+        // Do whatever you want with the inputData in the parent component
+    };
+
+    const [IdFiles, setIdFiles] = useState({}); // Define uploadedFiles state
+    const handleUploadedIdFiles = (idFiles) => {
+        console.log("Received ID Files from UploadID component:", idFiles);
+        setIdFiles(idFiles);
+    };
+    const [paymentFiles, setPaymentFiles] = useState({}); // Define uploadedFiles state
+    const handleUploadedPaymentFiles = (paymentFiles) => {
+        console.log("Received Payment Files from Payment component:", paymentFiles);
+        console.log("Received Id Files from Payment component:", IdFiles);
+        setPaymentFiles(paymentFiles);
+    };
+
+    const uploadImages = async () => {
+        try {
+            const uniqueFolderId = uuidv4(); // Generate a unique ID for the folder
+            const uploadPromises = [];
+            const inputDataWithDownloadUrls = { ...inputData }; // Create a copy of inputData
+    
+            // Merge paymentFiles with uploadedFiles
+            const allFiles = { ...IdFiles, ...paymentFiles };
+    
+            // Loop through each entry in allFiles
+            Object.entries(allFiles).forEach(([fieldName, files]) => {
+                // Check if the entry contains a file
+                if (files) {
+                    // If the files are paymentFiles, use 'proof-of-payment' as the fieldName
+                    const field = fieldName === 'proof-of-payment' ? 'proof-of-payment' : fieldName;
+                    files.forEach((file) => {
+                        const imageRef = ref(storage, `Residency-Upload/${uniqueFolderId}/${file.name}`); // Use uniqueFolderId for folder structure
+                        uploadPromises.push(
+                            uploadBytes(imageRef, file).then(async (snapshot) => {
+                                // Get the download URL for the uploaded file
+                                const downloadURL = await getDownloadURL(snapshot.ref);
+    
+                                // Store the download URL in the inputData object
+                                inputDataWithDownloadUrls[field] = downloadURL;
+                            })
+                        );
+                    });
+                }
+            });
+    
+            // Wait for all files to be uploaded and download URLs to be obtained
+            await Promise.all(uploadPromises);
+    
+            // Generate a unique ID for the document
+            const docId = uuidv4();
+    
+            // Add the inputData with download URLs to Firestore
+            await addDoc(collection(db, 'userData'), {
+                [docId]: inputDataWithDownloadUrls
+            });
+    
+            // Log success message
+            console.log('Input data and download URLs uploaded successfully to Firestore');
+        } catch (error) {
+            // Log and handle errors
+            console.error('Error uploading input data and download URLs to Firestore:', error);
+        }
+    };
+    
+
+    const receiveFilesFromUpload = (files) => {
+        console.log("Received Files from Upload Component:");
+    };
+
+    const containerRef = useRef(null);
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            // Trigger the "Next" button action
+            const nextButton = document.querySelector('.next-button');
+            if (nextButton) {
+                nextButton.click();
+            }
+        }
+    };
+
+    useEffect(() => {
+        if (containerRef.current) {
+            containerRef.current.focus();
+        }
+    }, []);
 
     return (
         <>
@@ -105,7 +205,12 @@ function ResidencyPage() {
                 </button>
             </div>
 
-            <div className="flex">
+            <div 
+                className="flex" 
+                ref={containerRef} 
+                tabIndex="0" 
+                onKeyDown={handleKeyDown}
+            >
                 <div className="w-full md:w-1/2 mx-auto shadow-xl rounded-2xl pb-2 bg-white mt-8 mb-10 px-4 md:px-0">
                     <h1 className="text-3xl font-bold text-center mb-4 mt-8">Residency Form</h1>
 
@@ -139,6 +244,19 @@ function ResidencyPage() {
                             residencyAddressFieldsComplete = {residencyAddressFieldsComplete}
                             uploadIDFieldsComplete = {uploadIDFieldsComplete}
                             paymentFieldsComplete = {paymentFieldsComplete}
+                        
+                            inputData={inputData}
+                            passIdToParent={handleUploadedIdFiles}
+                            uploadImages={uploadImages}
+                            
+                            passPaymentToParent={handleUploadedPaymentFiles}  
+
+
+
+                            receiveFilesFromUpload={receiveFilesFromUpload}  // send files to stepperControl
+                        
+                            IdFiles={IdFiles} // Pass IdFiles
+                            paymentFiles={paymentFiles} // Pass paymentFiles
                         />
                     }
                 </div>

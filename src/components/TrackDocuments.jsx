@@ -1,152 +1,191 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { collection, getDocs, doc, updateDoc, onSnapshot, getDoc } from 'firebase/firestore';
+import { db, auth } from '../firebase'; // Adjust the import path based on your file structure
+import { useNavigate } from 'react-router-dom';
 
-const TrackDocuments = ({ handleDocumentTypeChange, handleCheckButton }) => {
-  const [activeButton, setActiveButton] = useState(null);
+const TrackDocuments = () => {
+  const [documents, setDocuments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [expandedDocId, setExpandedDocId] = useState(null);
+  const [showClaimedPopup, setShowClaimedPopup] = useState(false); // State for managing popup visibility
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const navigate = useNavigate();
 
-  const handleButtonClick = (documentType) => {
-    setActiveButton(documentType);
-    handleDocumentTypeChange(documentType);
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          const documentsRef = collection(db, 'userData');
+          const querySnapshot = await getDocs(documentsRef);
+          const docs = [];
+
+          querySnapshot.forEach(doc => {
+            const userData = doc.data();
+            Object.keys(userData).forEach(key => {
+              const userDoc = userData[key];
+              if (userDoc.userId === currentUser.uid) {
+                docs.push({ mainDocId: doc.id, nestedDocId: key, ...userDoc });
+              }
+            });
+          });
+
+          setDocuments(docs);
+          setLoading(false);
+        } else {
+          console.log("No current user.");
+        }
+      } catch (error) {
+        console.error("Error fetching documents: ", error);
+        setError(error.message);
+      }
+    };
+
+    const unsubscribe = onSnapshot(collection(db, 'userData'), () => {
+      fetchData();
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const handleStatusChange = async (mainDocId, nestedDocId, newStatus) => {
+    try {
+      const mainDocRef = doc(db, 'userData', mainDocId);
+      const mainDocSnapshot = await getDoc(mainDocRef);
+
+      if (mainDocSnapshot.exists()) {
+        const mainDocData = mainDocSnapshot.data();
+        // Ensure the document has the specified nested document as the mainDocId
+        if (mainDocData && mainDocData[nestedDocId]) {
+          const updatedData = { ...mainDocData };
+          updatedData[nestedDocId].status = newStatus;
+          if (newStatus === 'Claimed') {
+            updatedData[nestedDocId].claimedDateTime = new Date(); // Set claimedDateTime to current date and time
+            setShowClaimedPopup(true); // Show the claimed popup
+          }
+          await updateDoc(mainDocRef, updatedData);
+        } else {
+          console.error("Nested document not found:", nestedDocId);
+        }
+      } else {
+        console.error("Main document not found:", mainDocId);
+      }
+    } catch (error) {
+      console.error("Error updating document status: ", error);
+    }
   };
 
-  const tableData = [
-    { id: 1, referenceNumber: 'Row 1, Column 1', dateRequested: 'Row 1, Column 2', status: 'Row 1, Column 3' },
-    { id: 2, referenceNumber: 'Row 2, Column 1', dateRequested: 'Row 2, Column 2', status: 'Row 2, Column 3' },
-    // Add more table data as needed
-  ];
+  const handleToggleDetails = (docId) => {
+    setExpandedDocId(expandedDocId === docId ? null : docId);
+  };
 
-  
+  const handleOpenLink = (url) => {
+    window.open(url, '_blank');
+  };
+
+  const handleHistoryClick = () => {
+    navigate('/history-documents');
+  };
 
   return (
-    <div>
-      <div className='mb-5'>
-      <ul className='flex justify-center mt-[150px] '>
-          <button
-            className={`h-12 place-content-center flex items-center justify-center border w-[300px] rounded-tl-lg rounded-tr-lg cursor-pointer hover:bg-[#abaaaa] ${
-              activeButton === 'All' ? 'bg-[#888]' : 'bg-white'
-            }`}
-            onClick={() => handleButtonClick('All')}
-          >
-            All
-          </button>
-          <button
-            className={`h-12 place-content-center flex items-center justify-center border w-[300px] rounded-tl-lg rounded-tr-lg cursor-pointer hover:bg-[#abaaaa] ${
-              activeButton === 'Pending' ? 'bg-[#888]' : 'bg-white'
-            }`}
-            onClick={() => handleButtonClick('Pending')}
-          >
-            Pending
-          </button>
-          {/* Add other buttons similarly */}
-        
+    <div className="mt-12 px-4 mx-auto">
+      <h1 className="text-center text-3xl font-bold mb-6">Admin Dashboard</h1>
+      {isMobile ? (
+        <div className="block md:hidden">
+          {documents.map(doc => (
+            doc.status !== 'Claimed' && (
+              <div key={`${doc.mainDocId}-${doc.nestedDocId}`} className="bg-white shadow-lg rounded-lg mb-4 p-4">
+                <p><strong>Document Type:</strong> {doc['document-type']}</p>
+                <p><strong>Number of Copies:</strong> {doc['number-of-copies']}</p>
+                <p><strong>Status:</strong> {doc.status}</p>
+                <p><strong>Request Date:</strong> {new Date(doc['requestDateTime']).toLocaleDateString()}</p>
+                <p><strong>Request Time:</strong> {new Date(doc['requestDateTime']).toLocaleTimeString()}</p>
+                {doc.status === 'Ready for Pick-up' && (
+                  <button
+                    className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mt-2"
+                    onClick={() => handleStatusChange(doc.mainDocId, doc.nestedDocId, 'Claimed')}
+                  >
+                    Claimed
+                  </button>
+                )}
+              </div>
+            )
+          ))}
+        </div>
+      ) : (
+        <div className="overflow-x-auto overflow-auto rounded-lg shadow-lg hidden md:block">
+          <table className="min-w-full">
+            <thead className="bg-blue-300 border-b">
+              <tr>
+                <th className="w-[200px] px-4 py-3 text-left text-sm font-semibold uppercase tracking-wider">Document Type</th>
+                <th className="w-[300px] text-sm font-semibold uppercase tracking-wider text-center">Number of Copies</th>
+                <th className="w-[200px] px-4 py-3 text-left text-sm font-semibold uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wider">Request Date</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wider">Request Time</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
 
+            <tbody className="bg-white divide-y divide-gray-200">
+              {documents.map(doc => (
+                doc.status !== 'Claimed' && (
+                  <tr key={`${doc.mainDocId}-${doc.nestedDocId}`} className="hover:bg-gray-100">
+                    <td className="px-4 py-3">{doc['document-type']}</td>
+                    <td className="px-4 py-3 text-center">{doc['number-of-copies']}</td>
+                    <td className="px-4 py-3">{doc.status}</td>
+                    <td className="px-4 py-3">{new Date(doc['requestDateTime']).toLocaleDateString()}</td>
+                    <td className="px-4 py-3">{new Date(doc['requestDateTime']).toLocaleTimeString()}</td>
+                    <td className="px-4 py-3">
+                      <div>
+                        {doc.status === 'Ready for Pick-up' && (
+                          <button
+                            className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+                            onClick={() => handleStatusChange(doc.mainDocId, doc.nestedDocId, 'Claimed')}
+                          >
+                            Claimed
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <button
+        className='fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-green-500 hover:bg-green-700 py-2 px-4 rounded-md text-white'
+        onClick={handleHistoryClick}
+      >
+        History
+      </button>
+      {/* Conditional rendering for the overlay or popup */}
+      {showClaimedPopup && (
+        <div className="fixed top-0 left-0 w-full h-full bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
+          <div className="bg-white p-8 rounded-lg shadow-lg">
+            <p className="text-center text-xl font-semibold mb-4">Document Claimed!</p>
+            <p className="text-center text-gray-700">Document has been recorded in history.</p>
             <button
-              className={`h-12 place-content-center flex items-center justify-center border w-[300px] rounded-tl-lg rounded-tr-lg cursor-pointer hover:bg-[#abaaaa] ${
-                activeButton === 'Processing' ? 'bg-[#888]' : 'bg-white'
-              }`}
-              onClick={() => handleButtonClick('Processing')}
+              className="bg-green-500 text-white font-bold py-2 px-4 rounded mt-4"
+              onClick={() => setShowClaimedPopup(false)} // Close the popup when button is clicked
             >
-              Processing
+              Close
             </button>
-
-            <button
-              className={`h-12 place-content-center flex items-center justify-center border w-[300px] rounded-tl-lg rounded-tr-lg cursor-pointer hover:bg-[#abaaaa] ${
-                activeButton === 'Completed' ? 'bg-[#888]' : 'bg-white'
-              }`}
-              onClick={() => handleButtonClick('Completed')}
-            >
-              Completed
-            </button>
-      </ul>
-
-      </div>
-
-      <div className='place-content-center flex items-center mb-[100px] mt-[100px]'>
-        <div className="p-2 bg-gray-300 w-[500px] flex items-center rounded-md ">
-          <input
-            id="search"
-            type="text"
-            className="w-[100%] h-[100%] p-2 bg-white rounded-[0.27px 0.29px 0.29px 0.27px] outline-none text-center"
-            placeholder="Search"
-          />  
-          <div className="absolute left-0 top-0 ml-2">
-            {/* Your icon or additional content here */}
           </div>
         </div>
-        <div className="documentTypeSection mx-auto p-8 text-center md:flex md:flex-col absolute right-0">
-          <div className="md:flex md:items-center mb-4"> 
-            <label htmlFor="documentType" className="documentTypeLabel text-lg md:mr-4"> 
-              Document type:
-            </label>
-            <select
-              id="documentType"
-              onChange={handleDocumentTypeChange}
-              className="documentTypeSelect text-lg px-4 py-2 border rounded-md" >
-              <option value="">Select</option>
-              <option value="Type 1" className="business-permit-1">Business Permit</option>
-              <option value="Type 2" className="residency">Residency</option>
-              <option value="Type 3" className="label-5">Indigency</option>
-              <option value="Type 4" className="business-clearance-1">Business Clearance</option>
-              <option value="Type 5" className="community-events-and-activities-1">Community events and activities</option>
-              <option value="Type 6" className="good-moral-1">Good Moral</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Table with 4 rows and addable columns */}
-      <div className='mt-4 place-content-center flex items-center'>
-      <table className='bg-white w-[1000px] '>
-        <thead className='h-[100px]'>
-          <tr className='bg-gray-200'>
-            <th>Reference Number</th>
-            <th>Date Requested</th>
-            <th>Status</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody className=''>
-          <tr className='h-[100px]'>
-            <td className='text-center'>Row 1, Column 1</td>
-            <td className='text-center'>Row 1, Column 2</td>
-            <td className='text-center'>Row 1, Column 3</td>
-            <td className='text-center'>
-              {/* Use Link component to navigate to CheckDocuments */}
-              <button onClick={() => handleCheckButton('Check')} className="bg-green-500 text-white px-4 py-2 rounded-lg">Check</button>
-            </td>
-          </tr>
-          <tr className='h-[100px]'>
-            <td className='text-center'>Row 2, Column 1</td>
-            <td className='text-center'>Row 2, Column 2</td>
-            <td className='text-center'>Row 2, Column 3</td>
-            <td className='text-center'>
-              {/* Use Link component to navigate to CheckDocuments */}
-              <button  onClick={() => handleCheckButton('Check')} className="bg-green-500 text-white px-4 py-2 rounded-lg">Check</button>
-            </td>
-          </tr>
-          <tr className='h-[100px]'>
-            <td className='text-center'>Row 3, Column 1</td>
-            <td className='text-center'>Row 3, Column 2</td>
-            <td className='text-center'>Row 3, Column 3</td>
-            <td className='text-center'>
-              {/* Use Link component to navigate to CheckDocuments */}
-              <button onClick={() => handleCheckButton('Check')} className="bg-green-500 text-white px-4 py-2 rounded-lg">Check</button>
-            </td>
-          </tr>
-          <tr className='h-[100px]'>
-            <td className='text-center'>Row 4, Column 1</td>
-            <td className='text-center'>Row 4, Column 2</td>
-            <td className='text-center'>Row 4, Column 3</td>
-            <td className='text-center'>
-              {/* Use Link component to navigate to CheckDocuments */}
-              <button onClick={() => handleCheckButton('Check')} className="bg-green-500 text-white px-4 py-2 rounded-lg">Check</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      </div>
+      )}
     </div>
   );
-}
+};
 
 export default TrackDocuments;

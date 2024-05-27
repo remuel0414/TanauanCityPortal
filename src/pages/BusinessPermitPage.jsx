@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Stepper from '../components/Stepper';
 import Upload from '../components/steps_Business_Permit/Upload';
 import BusinessInfo from '../components/steps_Business_Permit/BusinessInfo';
@@ -8,11 +8,15 @@ import Address from '../components/steps_Business_Permit/Address';
 import PersonalDetails from '../components/steps_Business_Permit/PersonalDetails';
 import Payment from '../components/steps_Business_Permit/Payment';
 import StepperControlBusinessPermit from '../components/StepperControlBusinessPermit';
+import { storage } from "../../firebase"; // Adjust the path if necessary
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { v4 as uuidv4 } from 'uuid';
+import { collection, addDoc } from 'firebase/firestore';
+import { db } from '../../firebase'; // Adjust the path based on your folder structure
 
-function BusinessPermitPage() {
+function BusinessPermitPage({ numberOfCopies }) {
     const [currentStep, setCurrentStep] = useState(1);
     const [userData, setUserData] = useState({
-        // Initialize userData with default values for all required fields
         "registration-type": "",
         "registration-number": "",
         "registration-date": "",
@@ -20,7 +24,7 @@ function BusinessPermitPage() {
         "sss-number": "",
         "business-name": "",
         "trade-name": "",
-        "house-bldg-number": "", // New fields for Address step
+        "house-bldg-number": "",
         "building-name": "",
         "lot-number": "",
         "subdivision": "",
@@ -28,27 +32,30 @@ function BusinessPermitPage() {
         "region": "",
         "province": "",
         "city": "",
-        "barangay": "", // Add any additional fields here
+        "barangay": "",
         "zip-code": "",
         "district": "",
-        "surname" : "", 
-        "given-name" : "",
-        "middle-name" : "",
-        "suffix" : "",
-        "sex" : "",
-        "proof-of-payment" : "",
-        "reference-number" : "",
-        "date-of-payment" : ""
+        "surname": "",
+        "given-name": "",
+        "middle-name": "",
+        "suffix": "",
+        "sex": "",
+        "proof-of-payment": "",
+        "reference-number": "",
+        "date-of-payment": "",
+        "document-type": "Business Permit",
+        "number-of-copies": numberOfCopies
     });
     const [finalData, setFinalData] = useState([]);
     const [allFilesUploaded, setAllFilesUploaded] = useState(false);
-    const [fieldsComplete, setFieldsComplete] = useState(false);
-    
     const [businessFieldsComplete, setBusinessFieldsComplete] = useState(false);
     const [addressFieldsComplete, setAddressFieldsComplete] = useState(false);
     const [personalDetailsFieldsComplete, setPersonalDetailsFieldsComplete] = useState(false);
     const [paymentFieldsComplete, setPaymentFieldsComplete] = useState(false);
 
+    const [uploadedFiles, setUploadedFiles] = useState({});
+    const [selectedFiles, setSelectedFiles] = useState({});
+    const [inputData, setInputData] = useState({});
 
     const steps = [
         "Upload Required Documents",
@@ -78,20 +85,19 @@ function BusinessPermitPage() {
     const handlePaymentFieldsComplete = (isComplete, uploadFieldComplete) => {
         setPaymentFieldsComplete(isComplete && uploadFieldComplete);
     };
-    
 
     const displayStep = (step) => {
         switch (step) {
             case 1:
-                return <Upload handleUploadComplete={handleUploadComplete} />;
+                return <Upload handleUploadComplete={handleUploadComplete} uploadImages={uploadImages} passFilesToParent={handleSelectedFiles} />;
             case 2:
-                return <BusinessInfo handleBusinessFieldsComplete={handleBusinessFieldsComplete} />;
+                return <BusinessInfo handleBusinessFieldsComplete={handleBusinessFieldsComplete} passInputDataToParent={passInputDataToParent} />;
             case 3:
-                return <Address handleAddressFieldsComplete={handleAddressFieldsComplete} />;
+                return <Address handleAddressFieldsComplete={handleAddressFieldsComplete} passInputDataToParent={passInputDataToParent} />;
             case 4:
-                return <PersonalDetails handlePersonalDetailsFieldsComplete={handlePersonalDetailsFieldsComplete} />;
+                return <PersonalDetails handlePersonalDetailsFieldsComplete={handlePersonalDetailsFieldsComplete} passInputDataToParent={passInputDataToParent} />;
             case 5:
-                return <Payment handlePaymentFieldsComplete = {handlePaymentFieldsComplete}/>;
+                return <Payment handlePaymentFieldsComplete={handlePaymentFieldsComplete} passInputDataToParent={passInputDataToParent} passPaymentToParent={handleUploadedFiles} setUploadedFiles={setUploadedFiles} />;
             case 6:
                 return <Final />;
             default:
@@ -101,18 +107,82 @@ function BusinessPermitPage() {
 
     const handleClick = (direction) => {
         let newStep = currentStep;
-
         direction === "next" ? newStep++ : newStep--;
         newStep > 0 && newStep <= steps.length && setCurrentStep(newStep);
     }
 
     const handleGoBack = () => {
-        window.location.href = '/document-types';
-        // Reset fieldsComplete state when navigating back to BusinessInfo step
+        window.location.href = '/';
         if (currentStep === 2) {
             setFieldsComplete(true);
         }
     }
+
+    const uploadImages = async () => {
+        try {
+            const uniqueFolderId = uuidv4();
+            const uploadPromises = [];
+            const inputDataWithDownloadUrls = { ...inputData };
+
+            const allFiles = { ...uploadedFiles, ...selectedFiles };
+
+            Object.entries(allFiles).forEach(([fieldName, files]) => {
+                if (files) {
+                    files.forEach((file) => {
+                        const imageRef = ref(storage, `BusinessPermit-Upload/${uniqueFolderId}/${file.name}`);
+                        uploadPromises.push(
+                            uploadBytes(imageRef, file).then(async (snapshot) => {
+                                const downloadURL = await getDownloadURL(snapshot.ref);
+                                inputDataWithDownloadUrls[fieldName] = downloadURL;
+                            })
+                        );
+                    });
+                }
+            });
+
+            await Promise.all(uploadPromises);
+
+            const docId = uuidv4();
+
+            await addDoc(collection(db, 'userData'), {
+                [docId]: inputDataWithDownloadUrls
+            });
+
+            console.log('Input data and download URLs uploaded successfully to Firestore');
+        } catch (error) {
+            console.error('Error uploading input data and download URLs to Firestore:', error);
+        }
+    };
+
+    const passInputDataToParent = (inputData) => {
+        setInputData(inputData);
+    };
+
+    const handleSelectedFiles = (files) => {
+        setSelectedFiles(files);
+    };
+
+    const handleUploadedFiles = (files) => {
+        setUploadedFiles(files);
+    };
+
+    const containerRef = useRef(null);
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            // Trigger the "Next" button action
+            const nextButton = document.querySelector('.next-button');
+            if (nextButton) {
+                nextButton.click();
+            }
+        }
+    };
+
+    useEffect(() => {
+        if (containerRef.current) {
+            containerRef.current.focus();
+        }
+    }, []);
 
     return (
         <>
@@ -125,10 +195,14 @@ function BusinessPermitPage() {
                     Go Back to Request Page
                 </button>
             </div>
-            <div className="flex ">
+            <div 
+                className="flex" 
+                ref={containerRef} 
+                tabIndex="0" 
+                onKeyDown={handleKeyDown}
+            >
                 <div className="w-full md:w-1/2 mx-auto shadow-xl rounded-2xl pb-2 bg-white mt-8 mb-10 px-4 md:px-0">
-
-                    <h1 className="text-3xl font-bold text-center mb-4 mt-8 ">Business Permit and Licensing Form</h1> 
+                    <h1 className="text-3xl font-bold text-center mb-4 mt-8">Business Permit and Licensing Form</h1>
                     <div className="container horizontal mt-5">
                         <Stepper
                             steps={steps}
@@ -145,18 +219,22 @@ function BusinessPermitPage() {
                             </StepperContext.Provider>
                         </div>
                     </div>
+                    
+                    {/* Navigation Controls */}
                     {currentStep !== steps.length &&
-                                <StepperControlBusinessPermit
-                                handleClick={handleClick}
-                                currentStep={currentStep}
-                                steps={steps}
-                                allFilesUploaded={allFilesUploaded}
-                                fieldsComplete={fieldsComplete} // Pass fieldsComplete directly
-                                businessFieldsComplete={businessFieldsComplete}
-                                addressFieldsComplete={addressFieldsComplete}
-                                personalDetailsFieldsComplete={personalDetailsFieldsComplete}
-                                paymentFieldsComplete={paymentFieldsComplete}
-                            />
+                    <StepperControlBusinessPermit
+                        handleClick={handleClick}
+                        currentStep={currentStep}
+                        steps={steps}
+                        allFilesUploaded={allFilesUploaded}
+                        businessFieldsComplete={businessFieldsComplete}
+                        addressFieldsComplete={addressFieldsComplete}
+                        personalDetailsFieldsComplete={personalDetailsFieldsComplete}
+                        paymentFieldsComplete={paymentFieldsComplete}
+                        uploadImages={uploadImages}
+                        inputData={inputData}
+                        passPaymentToParent={handleUploadedFiles}
+                    />
                     }
                 </div>
             </div>

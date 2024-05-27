@@ -1,33 +1,86 @@
 import { useContext, useState, useEffect } from 'react';
 import { StepperContext } from '../../context/StepperContext';
 import QRCode from '../../img/GCASHNUMBER.jpg';
+import { db, auth } from '../../firebase'; // Import Firebase db and auth
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
-export default function BusinessClearancePayment({ handlePaymentFieldsComplete }) {
+export default function Payment({ handlePaymentFieldsComplete, passPaymentToParent, passInputDataToParent }) {
     const { userData, setUserData } = useContext(StepperContext);
-    const [uploadedFiles, setUploadedFiles] = useState({});
+    const [inputData, setInputData] = useState({ 
+        ...userData, 
+        status: "Pending",
+        requestDateTime: new Date().toISOString() // Capture the current date and time
+    });
+    const [paymentFiles, setPaymentFiles] = useState({});
+    const [userInfo, setUserInfo] = useState(null);
 
+    const passPaymentToParentFunction = () => {
+        passPaymentToParent(paymentFiles);
+    };
 
     useEffect(() => {
-        // Check if all required files are uploaded
+        passPaymentToParentFunction();
+        console.log("Selected Files:", paymentFiles);
+        
         const requiredFiles = ['proof-of-payment'];
         const requiredFields = ["date-of-payment", "reference-number"];
         const isComplete = requiredFields.every(fieldName => userData[fieldName] !== '');
-        const filesUploaded = requiredFiles.every(fieldName => uploadedFiles[fieldName]);
-        handlePaymentFieldsComplete(isComplete, filesUploaded); // Update handlePaymentFieldsComplete with upload field status
-    }, [uploadedFiles, userData, handlePaymentFieldsComplete]);
-    
+        const filesUploaded = requiredFiles.every(fieldName => paymentFiles[fieldName] && paymentFiles[fieldName].length > 0);
+        handlePaymentFieldsComplete(isComplete, filesUploaded);
+        console.log("Files Are Uploaded: ", filesUploaded);
+    }, [paymentFiles, userData, handlePaymentFieldsComplete]);
 
     const handleChange = (e, fieldName) => {
         const file = e.target.files[0];
-        setUploadedFiles({
-            ...uploadedFiles,
-            [fieldName]: file ? file.name : null
-        });
-        setUserData({
-            ...userData,
-            [fieldName]: file
-        });
+        const updatedFiles = {
+            ...paymentFiles,
+            [fieldName]: file ? [file] : null,
+        };
+        setPaymentFiles(updatedFiles);
+        
+        const { name, value } = e.target;
+        setInputData(prevInputData => ({ ...prevInputData, [name]: value }));
     };
+
+    const handleCancelUpload = (fieldName, fileName) => {
+        const updatedPaymentFiles = {
+            ...paymentFiles,
+            [fieldName]: paymentFiles[fieldName].filter(file => file.name !== fileName)
+        };
+        setPaymentFiles(updatedPaymentFiles);
+
+        const filesUploaded = Object.values(updatedPaymentFiles).some(files => files && files.length > 0);
+        handlePaymentFieldsComplete(true, filesUploaded);
+        console.log("Files Are Uploaded: ", filesUploaded);
+    };
+
+    useEffect(() => {
+        setUserData(inputData);
+    }, [inputData, setUserData]);
+
+    useEffect(() => {
+        const fetchUserInfo = async () => {
+            const currentUser = auth.currentUser;
+            if (currentUser) {
+                const userInfoRef = collection(db, 'userInfo');
+                const q = query(userInfoRef, where('uid', '==', currentUser.uid));
+                const querySnapshot = await getDocs(q);
+                querySnapshot.forEach((doc) => {
+                    setUserInfo(doc.data());
+                });
+            }
+        };
+
+        fetchUserInfo();
+    }, []);
+
+    useEffect(() => {
+        if (userInfo) {
+            passInputDataToParent({ ...inputData, userId: auth.currentUser.uid, userInfo });
+        } else {
+            passInputDataToParent({ ...inputData, userId: auth.currentUser.uid });
+        }
+    }, [inputData, userInfo, passInputDataToParent]);
 
     return (
         <div className='flex flex-col'>
@@ -39,24 +92,29 @@ export default function BusinessClearancePayment({ handlePaymentFieldsComplete }
                     <img src={QRCode} alt='Proof of Payment' />
                 </div>
                 <ul className='uploadList'>
-                    <li className='flex justify-between items-center'>
-                        <span className='text-sm'>Proof of Payment: </span>
-                        <div className='flex items-center'>
-                            <input
-                                type='file'
-                                id='proof-of-payment'
-                                name='proof-of-payment'
-                                className='hidden'
-                                onChange={(e) => handleChange(e, 'proof-of-payment')}
-                                required  // Marking the upload field as required
-                            />
-                            <label
-                                htmlFor='proof-of-payment'
-                                className='bg-white py-1 px-2 rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer mr-2'
-                            >
-                                Choose File
-                            </label>
-                            <span className='text-sm'>{uploadedFiles['proof-of-payment'] || "No File Uploaded"}</span>
+                    <li className='flex justify-between items-center mb-8'>
+                        <span className='text-sm sm:text-base mt-[10px] '>Proof of Payment</span>
+                        <input
+                            type='file'
+                            id='proof-of-payment-input'
+                            name='proof-of-payment-input'
+                            className='hidden'
+                            onChange={(e) => handleChange(e, 'proof-of-payment')}
+                            required
+                        />
+                        <label
+                            htmlFor='proof-of-payment-input'
+                            className='bg-blue-500 text-white py-1 px-2 rounded-md border border-gray-300 hover:bg-blue-600 cursor-pointer mr-2 mt-[10px] ml-auto'
+                        >
+                            Choose Files
+                        </label>
+                        <div>
+                            {paymentFiles['proof-of-payment'] && paymentFiles['proof-of-payment'].map((file, index) => (
+                                <div key={index} className="flex items-center bg-white py-1 px-2 rounded-md border border-gray-300 hover:bg-gray-100 cursor-pointer mr-2 mt-4 ">
+                                    <p className="mr-2">{file.name}</p>
+                                    <button className='ml-auto text-black-600 bg-red-600 w-[30px] rounded' onClick={() => handleCancelUpload('proof-of-payment', file.name)}>x</button>
+                                </div>
+                            ))}
                         </div>
                     </li>
                 </ul>
@@ -66,8 +124,8 @@ export default function BusinessClearancePayment({ handlePaymentFieldsComplete }
                     </div>
                     <div className="bg-white my-2 p-1 flex border border-gray-200 rounded">
                         <input
-                            onChange={(e) => setUserData({...userData, "reference-number": e.target.value})}
-                            value={userData["reference-number"] || ""}
+                            onChange={(e) => setInputData({...inputData, "reference-number": e.target.value})}
+                            value={inputData["reference-number"] || ""}
                             name="reference-number"   
                             placeholder="XXXXXXXXXXXXXXX"
                             className="p-1 px-2 appearance-none outline-none w-full text-gray-800"
@@ -81,8 +139,8 @@ export default function BusinessClearancePayment({ handlePaymentFieldsComplete }
                     </div>
                     <div className="bg-white my-2 p-1 flex border border-gray-200 rounded">
                         <input
-                            onChange={(e) => setUserData({...userData, "date-of-payment": e.target.value})}
-                            value={userData["date-of-payment"] || ""}   
+                            onChange={(e) => setInputData({...inputData, "date-of-payment": e.target.value})}
+                            value={inputData["date-of-payment"] || ""}   
                             type='date'
                             name="date-of-payment"   
                             placeholder="MM/DD/YY"
@@ -93,5 +151,5 @@ export default function BusinessClearancePayment({ handlePaymentFieldsComplete }
                 </div>
             </div>
         </div>
-    )
+    );
 }

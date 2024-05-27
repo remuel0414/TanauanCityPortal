@@ -1,13 +1,14 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { StepperContext } from '../../context/StepperContext';
 
-export default function OrganizerInformation({handleOrganizerInformationFieldsComplete}) {
+export default function OrganizerInformation({handleOrganizerInformationFieldsComplete, passInputDataToParent}) {
   const { userData, setUserData } = useContext(StepperContext);
   const [inputData, setInputData] = useState(userData);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setInputData({ ...inputData, [name]: value });
+    passInputDataToParent(inputData); // Step 2: Pass data to parent
   };
 
   useEffect(() => {
@@ -21,6 +22,10 @@ export default function OrganizerInformation({handleOrganizerInformationFieldsCo
     handleOrganizerInformationFieldsComplete(isComplete);
   }, [userData, handleOrganizerInformationFieldsComplete]);
 
+  useEffect(() => {
+    passInputDataToParent(inputData);
+  }, [inputData, passInputDataToParent]);
+  
   return (
     <div className="flex flex-col">
       <div className="w-full mx-2 flex-1">

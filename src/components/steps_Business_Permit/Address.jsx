@@ -1,15 +1,25 @@
 
 // Address.jsx
-import React, { useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { StepperContext } from '../../context/StepperContext';
 
-export default function Address({ handleAddressFieldsComplete }) {
+export default function Address({ handleAddressFieldsComplete, passInputDataToParent }) {
   const { userData, setUserData } = useContext(StepperContext);
+  const [inputData, setInputData] = useState(userData);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setUserData({ ...userData, [name]: value });
+    setInputData({ ...inputData, [name]: value });
+    passInputDataToParent(inputData); // Pass updated data to parent component
   };
+
+  useEffect(() => {
+    setUserData(inputData);
+  }, [inputData, setUserData]);
+
+  useEffect(() => {
+    passInputDataToParent(inputData);
+  }, [inputData, passInputDataToParent]);
 
   useEffect(() => {
     const requiredFields = ["house-bldg-number", "building-name", "lot-number", "subdivision", "street", "region", "province", "city", "barangay", "zip-code", "district"];

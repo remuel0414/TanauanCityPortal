@@ -1,11 +1,30 @@
-// Content.jsx
 import React, { useState } from 'react';
 import { useSpring, animated } from 'react-spring';
 import Logo from '../../assets/logo.png';
 import { FaEnvelope, FaLock, FaUser, FaMapMarkerAlt, FaPhone } from 'react-icons/fa';
 import TermsAndConditions from './TermsAndConditions';
 
-const Content = ({ action, loading, error, resetEmailSent, handleActionChange, handleLogin, handleSignUp, handleForgotPassword, email, setEmail, password, setPassword, fullName, setFullName, address, setAddress, phoneNumber, setPhoneNumber }) => {
+const Content = ({ 
+    action, 
+    loading, 
+    error, 
+    resetEmailSent, 
+    handleActionChange, 
+    handleLogin, 
+    handleSignUp, 
+    handleForgotPassword, 
+    email, 
+    setEmail, 
+    password, 
+    setPassword, 
+    fullName, 
+    setFullName, 
+    address, 
+    setAddress, 
+    phoneNumber, 
+    setPhoneNumber, 
+    handleKeyPress // Add handleKeyPress to props
+}) => {
     const leftAnimation = useSpring({ opacity: 1, transform: 'translateX(0)', from: { opacity: 0, transform: 'translateX(-50px)' } });
     const rightAnimation = useSpring({ opacity: 1, transform: 'translateX(0)', from: { opacity: 0, transform: 'translateX(50px)' } });
 
@@ -27,15 +46,19 @@ const Content = ({ action, loading, error, resetEmailSent, handleActionChange, h
                 <animated.div style={leftAnimation} className="lg:w-1/2 mb-8 flex justify-center items-center mt-10">
                     <div className="text-center">
                         <img src={Logo} alt="Logo" className="w-64 lg:w-80 h-auto mx-auto mb-4 lg:mb-8 rounded-full shadow-xl" />
-                        <h1 className='text-5xl lg:text-6xl font-bold text-white mb-4'>Welcome to the Online Booking Portal</h1>
+                        <h1 className='text-5xl lg:text-6xl font-bold text-white mb-4 text-shadow-lg'>
+                            Welcome to the Online Booking Portal
+                        </h1>
                         <div className={`floating-text animate-bounce ${loading ? 'hidden' : ''}`}>
-                            <p className="mt-4 lg:mt-5 text-2xl text-white font-bold">Sign In | Log In!</p>
+                            <p className="mt-4 lg:mt-5 text-2xl text-white font-bold text-shadow-lg">
+                            Sign In | Log In!
+                            </p>
                         </div>
                     </div>
                 </animated.div>
                 {/* Right side: Login menu */}
-                <animated.div style={{ ...rightAnimation, marginTop: '180px' }} className="lg:w-1/2">
-                    <div className="max-w-md bg-white rounded-lg shadow-lg p-8 w-full lg:ml-8 mt-8 lg:mt-0">
+                <animated.div style={{ ...rightAnimation, marginTop: '40px' }} className="lg:w-1/2 flex justify-center items-center">
+                    <div className="max-w-md bg-white rounded-lg shadow-lg p-8 w-full">
                         <div className="flex items-center mb-8">
                             <h1 className='text-3xl font-bold text-gray-800'>{action === 'Login' ? 'Login' : 'Sign Up'}</h1>
                         </div>
@@ -94,11 +117,12 @@ const Content = ({ action, loading, error, resetEmailSent, handleActionChange, h
                                     placeholder='Password'
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
+                                    onKeyPress={handleKeyPress} // Add onKeyPress event
                                 />
                             </div>
                             {action === 'Login' && (
                                 <div className='forgot-password mt-2 text-right'>
-                                    <span className='text-gray-600 text-sm cursor-pointer' onClick={handleForgotPassword}>Forgot Password?</span>
+                                    <span className='text-gray-600 text-sm cursor-pointer hover:text-yellow-900' onClick={handleForgotPassword}>Forgot Password?</span>
                                 </div>
                             )}
                         </div>
@@ -135,9 +159,9 @@ const Content = ({ action, loading, error, resetEmailSent, handleActionChange, h
                         {action !== "Login" && (
                             <>
                                 {/* Terms and conditions */}
-                                <div className='forgot-password mt-2 text-right'>
+                                <div className='forgot-password mt-2 text-center'>
                                     <input type='checkbox' checked={agreeTerms} onChange={handleCheckboxChange} />
-                                    <label className='ml-2 text-gray-600'>I agree to the <span className='text-brown cursor-pointer' onClick={toggleTerms}>Terms & Conditions</span></label>
+                                    <label className='ml-2 text-gray-600'>I agree to the <span className='underline text-brown-300 cursor-pointer hover:text-yellow-900' onClick={toggleTerms}>Terms & Conditions</span></label>
                                 </div>
                                 {/* Sign up button */}
                                 <div className='submit-container flex justify-center mt-8'>

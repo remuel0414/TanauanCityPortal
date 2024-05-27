@@ -98,30 +98,40 @@ const LoginSignup = () => {
             .finally(() => setLoading(false));
     };
 
+    const handleKeyPress = (e) => {
+        if (e.key === 'Enter') {
+            action === 'Login' ? handleLogin() : handleSignUp();
+        }
+    };
+
     return (
         <div className="relative min-h-screen">
             <div className="absolute inset-0" style={{ backgroundImage: `url(${backgroundImg})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(5px)' }}></div>
-            <Content
-                action={action}
-                loading={loading}
-                error={error}
-                resetEmailSent={resetEmailSent}
-                handleActionChange={handleActionChange}
-                handleLogin={handleLogin}
-                handleSignUp={handleSignUp}
-                handleForgotPassword={handleForgotPassword}
-                email={email}
-                setEmail={setEmail}
-                password={password}
-                setPassword={setPassword}
-                fullName={fullName} // Pass fullName state
-                setFullName={setFullName} // Pass setFullName function
-                address={address} // Pass address state
-                setAddress={setAddress} // Pass setAddress function
-                phoneNumber={phoneNumber} // Pass phoneNumber state
-                setPhoneNumber={setPhoneNumber} // Pass setPhoneNumber function
-            />
-            {resetEmailSent && <p className="text-green-500 text-center">Reset email sent successfully</p>}
+            <div className="absolute inset-0 bg-black opacity-50"></div> {/* Semi-transparent overlay */}
+            <div className="relative z-10"> {/* Ensure content is above the overlay */}
+                <Content
+                    action={action}
+                    loading={loading}
+                    error={error}
+                    resetEmailSent={resetEmailSent}
+                    handleActionChange={handleActionChange}
+                    handleLogin={handleLogin}
+                    handleSignUp={handleSignUp}
+                    handleForgotPassword={handleForgotPassword}
+                    email={email}
+                    setEmail={setEmail}
+                    password={password}
+                    setPassword={setPassword}
+                    fullName={fullName} // Pass fullName state
+                    setFullName={setFullName} // Pass setFullName function
+                    address={address} // Pass address state
+                    setAddress={setAddress} // Pass setAddress function
+                    phoneNumber={phoneNumber} // Pass phoneNumber state
+                    setPhoneNumber={setPhoneNumber} // Pass setPhoneNumber function
+                    handleKeyPress={handleKeyPress} // Pass the handleKeyPress prop
+                />
+                {resetEmailSent && <p className="text-green-500 text-center">Reset email sent successfully</p>}
+            </div>
         </div>
     );
 }

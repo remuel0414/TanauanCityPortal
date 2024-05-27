@@ -1,21 +1,33 @@
 
 // PersonalDetails.jsx
-import React, { useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { StepperContext } from '../../context/StepperContext';
 
-export default function PersonalDetails({ handlePersonalDetailsFieldsComplete }) {
+export default function PersonalDetails({ handlePersonalDetailsFieldsComplete, passInputDataToParent }) {
   const { userData, setUserData } = useContext(StepperContext);
+  const [inputData, setInputData] = useState(userData);
+
+  
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setUserData({ ...userData, [name]: value });
+    setInputData({ ...inputData, [name]: value });
+    passInputDataToParent(inputData); // Step 2: Pass data to parent
   };
+
+  useEffect(() => {
+    setUserData(inputData);
+  }, [inputData, setUserData]);
 
   useEffect(() => {
     const requiredFields = ["surname", "given-name", "middle-name", "suffix", "sex"];
     const isComplete = requiredFields.every(field => !!userData[field]);
     handlePersonalDetailsFieldsComplete(isComplete);
   }, [userData, handlePersonalDetailsFieldsComplete]);
+
+  useEffect(() => {
+    passInputDataToParent(inputData);
+  }, [inputData, passInputDataToParent]);
 
   return (
     <div className="flex flex-col">

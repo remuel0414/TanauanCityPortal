@@ -41,7 +41,7 @@ const LandingPage = () => {
 
         {/* Learn More Button */}
         <button
-          className="mt-8 px-6 py-3 bg-gradient-orange text-white rounded hover:bg-blue-700 landing-button"
+          className="mt-8 px-6 py-3 rounded hover:bg-blue-700 transition-all duration-300 ease-in-out transform hover:scale-105 bg-gradient-to-r from-orange-300 to-red-300 text-white"
           onClick={toggleModal}
         >
           Learn More

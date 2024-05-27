@@ -1,8 +1,11 @@
 import React from 'react'
 
-export default function Complete() {
+export default function Complete(allFormsCompleted) {
+
+
   return (
     <div className='container md: mt-10'>
+      
       <div className='flex flex-col items-center'>
         <div className='text-green-400'>
           <svg
@@ -30,9 +33,11 @@ export default function Complete() {
         </div>
 
         <a className= "mt-10" href="/">
-          <button className='h-10 px-5 text-green-700 transition-colors duration-150 border border-gray-300 rounded lg focus:shadow-outline hover:bg-green-500 hover:text-green-100'>
+        {allFormsCompleted && (
+          <button className='h-10 px-5 text-green-700 transition-colors duration-150 border border-gray-300 rounded lg focus:shadow-outline hover:bg-green-500 hover:text-green-100' >
             Close
           </button>
+        )}
         </a>
       </div>
     </div>
